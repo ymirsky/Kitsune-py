@@ -9,13 +9,13 @@ Neural networks have become an increasingly popular solution for network intrusi
 
 Kitsune is a novel ANN-based NIDS which is online, unsupervised, and efficient. A Kitsune, in Japanese folklore, is a mythical fox-like creature that has a number of tails, can mimic different forms, and whose strength increases with experience. Similarly, Kitsune has an ensemble of small neural networks (autoencoders), which are trained to mimic (reconstruct) network traffic patterns, and whose performance incrementally improves overtime. 
 	
-The architecture of \textbf{Kitsune's} anomaly detection algorithm (\textit{KitNET}) is illustrated in Fig. \ref{fig:arch}:
+The architecture of Kitsune is illustrated in the figure below:
 * First, a feature extraction framework called *AfterImage* efficiently tracks the patterns of every network channel using damped incremental statisitcs, and extracts a feature vector for each packet. The vector captures the temporal context of the packet's channel and sender. 
-* Next, the features are mapped to the visible neurons of the ensemble. 
+* Next, the features are mapped to the visible neurons of an ensemble of autoenoders (*KitNET* https://github.com/ymirsky/KitNET-py). 
 * Then, each autoencoder attempts to reconstruct the instance's features, and computes the reconstruction error in terms of root mean squared errors (RMSE). 
 * Finally, the RMSEs are forwarded to an output autoencoder, which acts as a non-linear voting mechanism for the ensemble. 
 
-We note that while training \textbf{Kitsune}, no more than one instance is stored in memory at a time. \textit{KitNET} has one main parameter, which is the maximum number of inputs for any given autoencoder in the ensemble. This parameter is used to increase the algorithm's speed with a modest trade off in detection performance.
+We note that while training \textbf{Kitsune}, no more than one instance is stored in memory at a time. Kitsune has one main parameter, which is the maximum number of inputs for any given autoencoder in the ensemble. This parameter is used to increase the algorithm's speed with a modest trade off in detection performance.
 	
 ![An illustration of Kitsune's architecture](https://raw.githubusercontent.com/ymirsky/Kitsune-py/master/Kitsune_fig.png)
 
