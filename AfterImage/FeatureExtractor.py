@@ -87,6 +87,7 @@ class FE:
         else: # scapy
             print("Reading PCAP file via Scapy...")
             self.scapyin = rdpcap(self.path)
+            self.limit = len(self.scapyin)
             print("Loaded " + str(len(self.scapyin)) + " Packets.")
 
     def get_next_vector(self):
