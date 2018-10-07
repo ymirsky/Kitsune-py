@@ -12,6 +12,7 @@ import numpy as np
 print("Importing Scapy Library")
 from scapy.all import *
 import os.path
+import platform
 import subprocess
 
 
@@ -35,6 +36,17 @@ class FE:
         maxSess = 100000000000
         self.nstat = ns.netStat(np.nan, maxHost, maxSess)
 
+    def _get_tshark_path(self):
+        if platform.system() == 'Windows':
+            return 'C:\Program Files\Wireshark\\tshark.exe'
+        else:
+            system_path = os.environ['PATH']
+            for path in system_path.split(os.pathsep):
+                filename = os.path.join(path, 'tshark')
+                if os.path.isfile(filename):
+                    return filename
+        return ''
+
     def __prep__(self):
         ### Find file: ###
         if not os.path.isfile(self.path):  # file does not exist
@@ -44,6 +56,7 @@ class FE:
         ### check file type ###
         type = self.path.split('.')[-1]
 
+        self._tshark = self._get_tshark_path()
         ##If file is TSV (pre-parsed by wireshark script)
         if type == "tsv":
             self.parse_type = "tsv"
@@ -51,7 +64,7 @@ class FE:
         ##If file is pcap
         elif type == "pcap" or type == 'pcapng':
             # Try parsing via tshark dll of wireshark (faster)
-            if os.path.isfile("C:\Program Files\Wireshark\\tshark.exe"):
+            if os.path.isfile(self._tshark):
                 self.pcap2tsv_with_tshark()  # creates local tsv file
                 self.path += ".tsv"
                 self.parse_type = "tsv"
@@ -87,6 +100,7 @@ class FE:
         else: # scapy
             print("Reading PCAP file via Scapy...")
             self.scapyin = rdpcap(self.path)
+            self.limit = len(self.scapyin)
             print("Loaded " + str(len(self.scapyin)) + " Packets.")
 
     def get_next_vector(self):
@@ -193,7 +207,7 @@ class FE:
     def pcap2tsv_with_tshark(self):
         print('Parsing with tshark...')
         fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e udp.srcport -e udp.dstport -e icmp.type -e icmp.code -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 -e arp.dst.hw_mac -e arp.dst.proto_ipv4 -e ipv6.src -e ipv6.dst"
-        cmd =  '''"C:\\Program Files\\Wireshark\\tshark" -r '''+ self.path +''' -T fields '''+ fields +''' -E header=y -E occurrence=f > '''+self.path+".tsv"
+        cmd =  '"' + self._tshark + '" -r '+ self.path +' -T fields '+ fields +' -E header=y -E occurrence=f > '+self.path+".tsv"
         subprocess.call(cmd,shell=True)
         print("tshark parsing complete. File saved as: "+self.path +".tsv")
 
