@@ -1,4 +1,4 @@
-from AfterImage.FeatureExtractor import *
+from FeatureExtractor import *
 from KitNET.KitNET import KitNET
 
 # MIT License
