@@ -28,7 +28,7 @@ Some points about KitNET:
 # Implimentation Notes: 
 
 * This python implimentation of Kitsune is **is not optimal** in terms of speed. To make Kitsune run as fast as described in the paper, the entire project must be cythonized, or implimented in C++
-* The feature extraction frame work is slightly diffrent than what is described in the paper. Specifically, we now use Lagrange-based Polynomial extrapolation to assit in computing the correlation based features. Therefore, results may differ slightly that the paper.
+* The feature extraction frame work is slightly diffrent than what is described in the paper. Specifically, we now use Lagrange-based Polynomial extrapolation to assit in computing the correlation based features. Therefore, results may differ slightly that the paper. To use a version more similar to the paper, change the import line in netStat.py to use AfterImage_NDSS.py (will be slower since it is not cython)
 * This implimentation requires cython to compile the AfterImage library. We also require the scapy library for parsing (tshark [Wireshark] is default).
 * The source code has been tested with Anaconda 3.6.3 on a Windows 10 64bit machine.
 
