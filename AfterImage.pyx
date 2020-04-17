@@ -737,7 +737,7 @@ cdef class Queue:
             return res3
 
     cdef get_last(self):
-        return self.q[self.indx]
+        return self.q[(self.indx-1)%3]
 
     cdef get_mean_diff(self):
         cdef double dif
