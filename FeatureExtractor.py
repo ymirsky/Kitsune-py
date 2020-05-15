@@ -1,10 +1,13 @@
 #Check if cython code has been compiled
 import os
 import subprocess
-print("Importing AfterImage Cython Library")
-if not os.path.isfile("AfterImage.c"): #has not yet been compiled, so try to do so...
-    cmd = "python setup.py build_ext --inplace"
-    subprocess.call(cmd,shell=True)
+
+use_extrapolation=False #experimental correlation code
+if use_extrapolation:
+    print("Importing AfterImage Cython Library")
+    if not os.path.isfile("AfterImage.c"): #has not yet been compiled, so try to do so...
+        cmd = "python setup.py build_ext --inplace"
+        subprocess.call(cmd,shell=True)
 #Import dependencies
 import netStat as ns
 import csv
