@@ -86,9 +86,9 @@ class incStat:
         return [np.nan]*2
 
     def radius(self, other_incStats):  # the radius of a set of incStats
-        A = self.var()
+        A = self.var()**2
         for incS in other_incStats:
-            A += incS.var()
+            A += incS.var()**2
         return math.sqrt(A)
 
     def magnitude(self, other_incStats):  # the magnitude of a set of incStats
