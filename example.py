@@ -1,6 +1,7 @@
 from Kitsune import Kitsune
 import numpy as np
 import time
+import csv
 
 ##############################################################################
 # Kitsune a lightweight online network intrusion detection system based on an ensemble of autoencoders (kitNET).
@@ -25,6 +26,13 @@ with zipfile.ZipFile("mirai.zip","r") as zip_ref:
 path = "mirai.pcap" #the pcap, pcapng, or tsv file to process.
 packet_limit = np.Inf #the number of packets to process
 
+# Get labels
+labels = "mirai_labels.csv" #the labels for the pcap packet data
+with open(labels, 'r') as f:
+    reader = csv.reader(f)
+    labels_list = list(reader)
+labels_list = [int(item) for sublist in labels_list for item in sublist] #flatten list of labels
+
 # KitNET params:
 maxAE = 10 #maximum size for any autoencoder in the ensemble layer
 FMgrace = 5000 #the number of instances taken to learn the feature mapping (the ensemble's architecture)
@@ -37,18 +45,45 @@ print("Running Kitsune:")
 RMSEs = []
 i = 0
 start = time.time()
+
+normal_rmses = []
+normal_indices = []
+anomaly_rmses = []
+anomaly_indices = []
+
 # Here we process (train/execute) each individual packet.
 # In this way, each observation is discarded after performing process() method.
 while True:
     i+=1
     if i % 1000 == 0:
-        print(i)
+        print("packet ", i, " rmse ", RMSEs[-1])
     rmse = K.proc_next_packet()
     if rmse == -1:
         break
+    if labels_list[i-1] == 0:
+        normal_rmses.append(rmse)
+        normal_indices.append(i)
+    else:
+        anomaly_rmses.append(rmse)
+        anomaly_indices.append(i)
     RMSEs.append(rmse)
 stop = time.time()
 print("Complete. Time elapsed: "+ str(stop - start))
+
+normal_rmses = np.array(normal_rmses)
+normal_indices = np.array(normal_indices)
+anomaly_rmses = np.array(anomaly_rmses)
+anomaly_indices = np.array(anomaly_indices)
+print("Normal rmse mean: ", np.mean(normal_rmses))
+print("Normal rmse std: ", np.std(normal_rmses))
+print("Normal rmses: ", np.sort(normal_rmses))
+print("Anomaly rmse mean: ", np.mean(anomaly_rmses))
+print("Anomaly rmse std: ", np.std(anomaly_rmses))
+print("Anomaly rmses: ", np.sort(anomaly_rmses))
+np.save("normal_rmses.npy", normal_rmses)
+np.save("normal_indices.npy", normal_indices)
+np.save("anomaly_rmses.npy", anomaly_rmses)
+np.save("anomaly_indices.npy", anomaly_indices)
 
 
 # Here we demonstrate how one can fit the RMSE scores to a log-normal distribution (useful for finding/setting a cutoff threshold \phi)
