@@ -16,27 +16,27 @@ import csv
 
 # Load Mirai pcap (a recording of the Mirai botnet malware being activated)
 # The first 70,000 observations are clean...
-print("Unzipping Sample Capture...")
-import zipfile
-with zipfile.ZipFile("mirai.zip","r") as zip_ref:
-    zip_ref.extractall()
+# print("Unzipping Sample Capture...")
+# import zipfile
+# with zipfile.ZipFile("mirai.zip","r") as zip_ref:
+#     zip_ref.extractall()
 
 
 # File location
-path = "mirai.pcap" #the pcap, pcapng, or tsv file to process.
+path = "Fuzzing_pcap.pcapng" #the pcap, pcapng, or tsv file to process.
 packet_limit = np.Inf #the number of packets to process
 
 # Get labels
-labels = "mirai_labels.csv" #the labels for the pcap packet data
+labels = "Fuzzing_labels.csv" #the labels for the pcap packet data
 with open(labels, 'r') as f:
     reader = csv.reader(f)
     labels_list = list(reader)
-labels_list = [int(item) for sublist in labels_list for item in sublist] #flatten list of labels
+labels_list = [int(sublist[-1]) for sublist in labels_list] #flatten list of labels
 
 # KitNET params:
 maxAE = 10 #maximum size for any autoencoder in the ensemble layer
-FMgrace = 5000 #the number of instances taken to learn the feature mapping (the ensemble's architecture)
-ADgrace = 50000 #the number of instances used to train the anomaly detector (ensemble itself)
+FMgrace = 10000 #the number of instances taken to learn the feature mapping (the ensemble's architecture)
+ADgrace = 100000 #the number of instances used to train the anomaly detector (ensemble itself)
 
 # Build Kitsune
 K = Kitsune(path,packet_limit,maxAE,FMgrace,ADgrace)
@@ -80,10 +80,10 @@ print("Normal rmses: ", np.sort(normal_rmses))
 print("Anomaly rmse mean: ", np.mean(anomaly_rmses))
 print("Anomaly rmse std: ", np.std(anomaly_rmses))
 print("Anomaly rmses: ", np.sort(anomaly_rmses))
-np.save("normal_rmses.npy", normal_rmses)
-np.save("normal_indices.npy", normal_indices)
-np.save("anomaly_rmses.npy", anomaly_rmses)
-np.save("anomaly_indices.npy", anomaly_indices)
+np.save("fuzz_normal_rmses.npy", normal_rmses)
+np.save("fuzz_normal_indices.npy", normal_indices)
+np.save("fuzz_anomaly_rmses.npy", anomaly_rmses)
+np.save("fuzz_anomaly_indices.npy", anomaly_indices)
 
 
 # Here we demonstrate how one can fit the RMSE scores to a log-normal distribution (useful for finding/setting a cutoff threshold \phi)
