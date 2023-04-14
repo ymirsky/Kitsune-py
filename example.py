@@ -80,8 +80,6 @@ print("Normal rmses: ", np.sort(normal_rmses))
 print("Anomaly rmse mean: ", np.mean(anomaly_rmses))
 print("Anomaly rmse std: ", np.std(anomaly_rmses))
 print("Anomaly rmses: ", np.sort(anomaly_rmses))
-np.save("fuzz_normal_rmses.npy", normal_rmses)
-np.save("fuzz_normal_indices.npy", normal_indices)
 np.save("fuzz_anomaly_rmses.npy", anomaly_rmses)
 np.save("fuzz_anomaly_indices.npy", anomaly_indices)
 

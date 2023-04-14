@@ -2,32 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    # Load data.
-    normal_indices = np.load("fuzz_normal_indices.npy")
-    anomalous_indices = np.load("fuzz_anomaly_indices.npy")
+    
+    # Load rmses (get rmses from running example.py)
     normal_rmses = np.load("fuzz_normal_rmses.npy")
     anomalous_rmses = np.load("fuzz_anomaly_rmses.npy")
+
+    # Count number of malicious packets with rmse less than threshold
+    threshold = 0.5
     count = 0 
     for i in range(anomalous_rmses.shape[0]):
-        if anomalous_rmses[i] < 0.6:
-            #print("Anomalous index: {}".format(anomalous_indices[i]))
+        if anomalous_rmses[i] < threshold:
             count += 1
     print("Count: {}".format(count))
-    print(normal_rmses.shape[0])
-
-    # for threshold in range(150,250):
-    #     correct_under_thershold = (correct < threshold).sum()
-    #     incorrect_under_thershold = (incorrect < threshold).sum()
-    #     accuracy = correct_under_thershold/(correct_under_thershold + incorrect_under_thershold)
-    #     coverage = (correct_under_thershold + incorrect_under_thershold)/(correct.size + incorrect.size)
-    #     print("Threshold: {}, Accuracy: {}, Coverage: {}".format(threshold, accuracy, coverage))
-
-    # max_rmse = max(np.amax(normal_rmses), np.amax(anomalous_rmses))
-    # print("Max rmse: {}".format(max_rmse))
 
     # Plot histogram.
     plt.figure(figsize=(11,5))
-    x_max = 15
+    max_rmse = max(np.amax(normal_rmses), np.amax(anomalous_rmses))
+    print("Max rmse: {}".format(max_rmse))
+    x_max = 20  # MODIFY depending on dataset
     plt.xlim(0, x_max)
     bin_list = [x_max/200.0 * i for i in range(201)]
 
