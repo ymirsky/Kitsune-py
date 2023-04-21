@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 if __name__ == "__main__":
     
     # Load rmses (get rmses from running example.py)
-    normal_rmses = np.load("fuzz_normal_rmses.npy")
-    anomalous_rmses = np.load("fuzz_anomaly_rmses.npy")
+    normal_rmses = np.load("results/normal_rmses.npy")
+    anomalous_rmses = np.load("results/anomaly_rmses.npy")
 
     # Count number of malicious packets with rmse less than threshold
     threshold = 0.5
@@ -35,10 +35,10 @@ if __name__ == "__main__":
 
     plt.xlabel("RMSE", fontsize=15)
     plt.ylabel("Frequency", fontsize=15)
-    plt.title("Fuzzing attack RMSEs", fontsize=15)
+    plt.title("Attack RMSEs", fontsize=15)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
     ax = plt.gca()
     handles, labels = ax.get_legend_handles_labels()
     plt.legend(reversed(handles), reversed(labels), loc="upper right", fontsize=18)
-    plt.savefig("fuzz_rmse.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig("rmse.pdf", format="pdf", bbox_inches="tight")

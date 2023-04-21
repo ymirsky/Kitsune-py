@@ -35,8 +35,8 @@ class Kitsune:
         # create feature vector
         x = self.FE.get_next_vector()
         if len(x) == 0:
-            return -1 #Error or no packets left
+            return -1, None #Error or no packets left
 
         # process KitNET
-        return self.AnomDetector.process(x)  # will train during the grace periods, then execute on all the rest.
+        return self.AnomDetector.process(x), x  # will train during the grace periods, then execute on all the rest.
 
