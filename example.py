@@ -32,14 +32,23 @@ with open(labels, 'r') as f:
     reader = csv.reader(f)
     labels_list = list(reader)
 labels_list = [int(sublist[-1]) for sublist in labels_list] #flatten list of labels
+if len(labels_list[0]) == 2:
+    for i in range(len(labels_list)):
+        labels_list[i] = labels_list[i][1]
+if '0' not in labels_list[0]: 
+    labels_list.pop(0)
+benign_packets = 0
+for i in range(len(labels_list)):
+    if labels_list[i] == '0':
+        benign_packets += 1
 
 # KitNET params:
 # maxAE = 10 #maximum size for any autoencoder in the ensemble layer
 # FMgrace = 10000 #the number of instances taken to learn the feature mapping (the ensemble's architecture)
 # ADgrace = 100000 #the number of instances used to train the anomaly detector (ensemble itself)
 maxAE = 10
-FMgrace = 10000
-ADgrace = 100000
+FMgrace = int(0.2*benign_packets)
+ADgrace = int(0.6*benign_packets)
 
 # Build Kitsune
 K = Kitsune(path,packet_limit,maxAE,FMgrace,ADgrace)
