@@ -1,14 +1,20 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+from parse_args import * 
+
 if __name__ == "__main__":
+
+    args = parse_args()
+    dataset = args.dataset
+    desc = args.job_description
     
     # Load rmses (get rmses from running example.py)
-    normal_rmses = np.load("results/normal_rmses.npy")
-    anomalous_rmses = np.load("results/anomaly_rmses.npy")
+    normal_rmses = np.load(f"results/{dataset}_{desc}_normal_rmses.npy")
+    anomalous_rmses = np.load(f"results/{dataset}_{desc}_anomaly_rmses.npy")
 
     # Count number of malicious packets with rmse less than threshold
-    threshold = 0.5
+    threshold = args.threshold
     count = 0 
     for i in range(anomalous_rmses.shape[0]):
         if anomalous_rmses[i] < threshold:
@@ -41,4 +47,4 @@ if __name__ == "__main__":
     ax = plt.gca()
     handles, labels = ax.get_legend_handles_labels()
     plt.legend(reversed(handles), reversed(labels), loc="upper right", fontsize=18)
-    plt.savefig("rmse.pdf", format="pdf", bbox_inches="tight")
+    plt.savefig(f"results/{dataset}_{desc}_rmse.pdf", format="pdf", bbox_inches="tight")

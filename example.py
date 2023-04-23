@@ -2,6 +2,7 @@ from Kitsune import Kitsune
 import numpy as np
 import time
 import csv
+import pickle
 
 ##############################################################################
 # Kitsune a lightweight online network intrusion detection system based on an ensemble of autoencoders (kitNET).
@@ -21,28 +22,42 @@ import csv
 # with zipfile.ZipFile("mirai.zip","r") as zip_ref:
 #     zip_ref.extractall()
 
+from parse_args import * 
+
+args = parse_args()
+dataset = args.dataset
+desc = args.job_description
+
 
 # File location
-path = "mirai.pcap" #the pcap, pcapng, or tsv file to process.
+path = f"{dataset}_pcap.pcap" #the pcap, pcapng, or tsv file to process.
 packet_limit = np.Inf #the number of packets to process
 
 # Get labels
-labels = "mirai_labels.csv" #the labels for the pcap packet data
+labels = f"{dataset}_labels.csv"  #the labels for the pcap packet data
 with open(labels, 'r') as f:
     reader = csv.reader(f)
     labels_list = list(reader)
 labels_list = [int(sublist[-1]) for sublist in labels_list] #flatten list of labels
-if len(labels_list[0]) == 2:
+if dataset != 'mirai':
+    if len(labels_list[0]) == 2:
+        for i in range(len(labels_list)):
+            labels_list[i] = labels_list[i][1]
+    if '0' not in labels_list[0]: 
+        labels_list.pop(0)
+    benign_packets = 0
     for i in range(len(labels_list)):
-        labels_list[i] = labels_list[i][1]
-if '0' not in labels_list[0]: 
-    labels_list.pop(0)
-benign_packets = 0
-for i in range(len(labels_list)):
-    if labels_list[i] == '0':
-        benign_packets += 1
-    else:
-        break
+        if labels_list[i] == '0':
+            benign_packets += 1
+        else:
+            break
+else:
+    benign_packets = 0
+    for i in range(len(labels_list)):
+        if int(labels_list[i]) == 0:
+            benign_packets += 1
+        else:
+            break
 
 # KitNET params:
 # maxAE = 10 #maximum size for any autoencoder in the ensemble layer
@@ -98,10 +113,11 @@ print("Normal rmses: ", np.sort(normal_rmses))
 print("Anomaly rmse mean: ", np.mean(anomaly_rmses))
 print("Anomaly rmse std: ", np.std(anomaly_rmses))
 print("Anomaly rmses: ", np.sort(anomaly_rmses))
-np.save("results/normal_rmses.npy", normal_rmses)
-np.save("results/anomaly_rmses.npy", anomaly_rmses)
-np.save("results/anomaly_indices.npy", anomaly_indices)
-np.savetxt("results/all_vec.csv", all_vec)
+np.save(f"results/{dataset}_{desc}_anomaly_rmses.npy", anomaly_rmses)
+np.save(f"results/{dataset}_{desc}_anomaly_indices.npy", anomaly_indices)
+np.savetxt(f"results/{dataset}_{desc}_all_vec.csv", all_vec)
+# with open(f"results/{dataset}_{desc}_all_vec.pickle", 'wb') as handle:
+#     pickle.dump(all_vec, handle, protocol=pickle.HIGHEST_PROTOCOL)
 print('All vectors saved, shape', all_vec.shape)
 
 # Here we demonstrate how one can fit the RMSE scores to a log-normal distribution (useful for finding/setting a cutoff threshold \phi)
@@ -121,5 +137,5 @@ plt.ylabel("RMSE (log scaled)")
 plt.xlabel("Time elapsed [min]")
 figbar=plt.colorbar()
 figbar.ax.set_ylabel('Log Probability\n ', rotation=270)
-plt.savefig('results/rmse_plot.png')
+plt.savefig(f'results/{dataset}_{desc}_rmse_plot.png')
 
