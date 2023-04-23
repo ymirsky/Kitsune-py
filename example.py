@@ -41,6 +41,8 @@ benign_packets = 0
 for i in range(len(labels_list)):
     if labels_list[i] == '0':
         benign_packets += 1
+    else:
+        break
 
 # KitNET params:
 # maxAE = 10 #maximum size for any autoencoder in the ensemble layer
