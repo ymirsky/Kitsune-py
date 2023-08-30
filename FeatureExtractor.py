@@ -216,8 +216,7 @@ class FE:
 
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())
-<<<<<<< HEAD
-
+    
     def get_all_vectors(self):
         vectorList = []
         while True:
@@ -229,5 +228,3 @@ class FE:
                 return vectorList
             else:
                 vectorList.append(vector)
-=======
->>>>>>> 28a654b5813936380d264c0934136efda672174a
