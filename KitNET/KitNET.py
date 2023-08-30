@@ -45,13 +45,22 @@ class KitNET:
         self.ensembleLayer = []
         self.outputLayer = None
 
+        self.trainingFeatureListInput = []
+        self.trainingFeatureListOutput = []
+        self.testingFeatureListInput = []
+        self.testingFeatureListOutput = []
+
     #If FM_grace_period+AM_grace_period has passed, then this function executes KitNET on x. Otherwise, this function learns from x.
     #x: a numpy array of length n
     #Note: KitNET automatically performs 0-1 normalization on all attributes.
     def process(self,x):
         if self.n_trained > self.FM_grace_period + self.AD_grace_period: #If both the FM and AD are in execute-mode
-            return self.execute(x)
+            self.testingFeatureListInput.append(x)
+            result = self.execute(x)
+            self.testingFeatureListOutput.append(result)
+            return result
         else:
+            self.trainingFeatureListInput.append(x)
             self.train(x)
             return 0.0
 

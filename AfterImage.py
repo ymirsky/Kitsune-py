@@ -439,4 +439,3 @@ class incStatDB:
             elif W > cutoffWeight:
                 break
         return n
-

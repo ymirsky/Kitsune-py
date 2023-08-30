@@ -1,5 +1,6 @@
 from FeatureExtractor import *
 from KitNET.KitNET import KitNET
+import numpy as np
 
 # MIT License
 #
@@ -40,3 +41,16 @@ class Kitsune:
         # process KitNET
         return self.AnomDetector.process(x)  # will train during the grace periods, then execute on all the rest.
 
+    def get_feature_list(self):
+        vectorList = self.FE.get_all_vectors()
+        return vectorList
+
+    def feed_batch(self, data):
+        resultList = []
+        count = 0
+        for instance in data:
+            if count % 1000 == 0:
+                print("processing packet {count}", count)
+            resultList.append(self.AnomDetector.process(instance))
+            count += 1
+        return np.array(resultList)
