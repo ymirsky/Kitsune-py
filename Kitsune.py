@@ -50,7 +50,7 @@ class Kitsune:
         count = 0
         for instance in data:
             if count % 1000 == 0:
-                print("processing packet {count}", count)
+                print("processing packet ", count, " / ", len(data))
             resultList.append(self.AnomDetector.process(instance))
             count += 1
         return np.array(resultList)
