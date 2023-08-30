@@ -45,11 +45,6 @@ class KitNET:
         self.ensembleLayer = []
         self.outputLayer = None
 
-        self.trainingFeatureListInput = []
-        self.trainingFeatureListOutput = []
-        self.testingFeatureListInput = []
-        self.testingFeatureListOutput = []
-
     #If FM_grace_period+AM_grace_period has passed, then this function executes KitNET on x. Otherwise, this function learns from x.
     #x: a numpy array of length n
     #Note: KitNET automatically performs 0-1 normalization on all attributes.

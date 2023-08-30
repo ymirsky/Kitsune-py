@@ -1,7 +1,6 @@
 #Check if cython code has been compiled
 import os
 import subprocess
-import numpy as np
 
 use_extrapolation=False #experimental correlation code
 if use_extrapolation:
@@ -217,6 +216,7 @@ class FE:
 
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())
+<<<<<<< HEAD
 
     def get_all_vectors(self):
         vectorList = []
@@ -229,3 +229,5 @@ class FE:
                 return vectorList
             else:
                 vectorList.append(vector)
+=======
+>>>>>>> 28a654b5813936380d264c0934136efda672174a
