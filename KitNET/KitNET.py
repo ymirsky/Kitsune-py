@@ -50,12 +50,9 @@ class KitNET:
     #Note: KitNET automatically performs 0-1 normalization on all attributes.
     def process(self,x):
         if self.n_trained > self.FM_grace_period + self.AD_grace_period: #If both the FM and AD are in execute-mode
-            self.testingFeatureListInput.append(x)
             result = self.execute(x)
-            self.testingFeatureListOutput.append(result)
             return result
         else:
-            self.trainingFeatureListInput.append(x)
             self.train(x)
             return 0.0
 
