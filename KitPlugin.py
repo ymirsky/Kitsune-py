@@ -4,8 +4,13 @@ from Kitsune import Kitsune
 import shap
 import numpy as np
 import pickle
+from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from datetime import datetime
+import sklearn
+import optuna
+from scipy.stats import norm
+import datetime
 
 # Class that provides a callable interface for Kitsune components.
 # Note that this approach nullifies the "incremental" aspect of Kitsune and significantly slows it down.
@@ -217,5 +222,66 @@ class KitPlugin:
             self.kit_trainer(inputs[session]["training_min"], inputs[session]["training_max"])
             self.shap_values_builder(inputs[session]["training_min"], inputs[session]["training_max"], inputs[session]["testing_min"], inputs[session]["testing_max"])
             self.create_sheet(session)
-        excel_file = "summary_statistics_mirai_benign_malicious.xlsx"
+        excel_file = "summary_statistics_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         self.workbook.save(excel_file)
+
+    # Runs a hyperparameter optimization on the supplied dataset, constrained by packet limit and number of runs
+    def hyper_opt(self, input_path, packet_limit, runs):
+        def objective(trial):
+            numAE = trial.suggest_int('numAE', 1, 10)
+            learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
+            hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
+
+            self.K = Kitsune(input_path, packet_limit, numAE, 5000, 50000, learning_rate, hidden_ratio)
+            # Load the feature list beforehand to save time
+            self.feature_loader()
+            self.kit_trainer(0, 60000)
+
+            y_test = np.zeros((200, 1))
+            y_pred = self.kit_runner(121550, 121750)
+
+            # Do small test run with benign sample to find normalization
+            print("Calculating normalization sample")
+            benignSample = np.log(self.kit_runner(70000, 80000))
+            logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
+
+            error = sklearn.metrics.mean_squared_error(y_test, logProbs)
+            return error
+
+        study = optuna.create_study()
+        study.optimize(objective, n_trials=runs)
+
+        # Create a new workbook and select the active worksheet
+        wb = Workbook()
+        ws = wb.active
+
+        # Write header row
+        header = ["Trial Number", "numAE", "learning_rate", "hidden_ratio"]
+        ws.append(header)
+
+        # Write trial information
+        best_value = float("inf")
+        best_row_idx = None  # Track the index of the best row
+        for idx, trial in enumerate(study.trials, start=2):  # Start from row 2 to leave room for the header
+            trial_params = trial.params
+            trial_row = [trial.number, trial_params["numAE"], trial_params["learning_rate"], trial_params["hidden_ratio"], trial.value]
+            ws.append(trial_row)
+
+            if trial.value < best_value:
+                best_value = trial.value
+                best_row_idx = idx
+
+        # Set fill color for the best value row
+        green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+        if best_row_idx is not None:
+            for cell in ws[best_row_idx]:
+                cell.fill = green_fill
+
+        # Save the workbook to a file
+
+        # Save the workbook to a file
+        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
+        wb.save(excel_file_path)
+
+        print("Results exported to", excel_file_path)
+        return study.best_trial

@@ -1,15 +1,5 @@
 from KitPlugin import KitPlugin
 
-training_min = 0
-training_max = 60000
-testing_min = 140329
-testing_max = 140333
-
-# Instantiate KitPlugin with appropriate parameters
-packet_limit = 200000
-maxAE = 10
-FMgrace = 5000
-ADgrace = 50000
 inputs = {
     "mirai_malicious" : {
         "input_path" : "input_data/mirai.pcap",
@@ -35,7 +25,9 @@ inputs = {
     }
 }
 KitPlugin = KitPlugin()
-KitPlugin.run_series_stats(inputs)
+KitPlugin.hyper_opt("input_data/mirai.pcap", 200000, 5)
+
+#KitPlugin.run_series_stats(inputs)
 # Get feature list from pickle file
 #KitPlugin.feature_loader()
 # Train Kitsune on the training data
