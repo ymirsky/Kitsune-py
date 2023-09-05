@@ -225,26 +225,35 @@ class KitPlugin:
         excel_file = "summary_statistics_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         self.workbook.save(excel_file)
 
-    # Runs a hyperparameter optimization on the supplied dataset, constrained by packet limit and number of runs
-    def hyper_opt(self, input_path, packet_limit, runs):
+    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs
+    def hyper_opt(self, input_path, runs):
+        self.K = Kitsune(input_path, 200000, 10, 5000, 50000, 0.1, 0.75)
+        self.feature_builder()
+        self.feature_pickle()
+
         def objective(trial):
             numAE = trial.suggest_int('numAE', 1, 10)
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
             hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
 
-            self.K = Kitsune(input_path, packet_limit, numAE, 5000, 50000, learning_rate, hidden_ratio)
+            self.K = Kitsune(input_path, 100000, numAE, 5000, 50000, learning_rate, hidden_ratio)
             # Load the feature list beforehand to save time
             self.feature_loader()
             self.kit_trainer(0, 60000)
 
-            y_test = np.zeros((200, 1))
-            y_pred = self.kit_runner(121550, 121750)
+            y_test = np.zeros((2000, 1))
+            y_pred = self.kit_runner(70000, 80000)
 
             # Do small test run with benign sample to find normalization
             print("Calculating normalization sample")
-            benignSample = np.log(self.kit_runner(70000, 80000))
+            benignSample = np.log(self.kit_runner(85000, 95000))
+            print('benign:')
+            print(benignSample)
+            print('prediction:')
+            print(y_pred.shape)
             logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
-
+            print(y_test.shape)
+            print(logProbs.shape)
             error = sklearn.metrics.mean_squared_error(y_test, logProbs)
             return error
 

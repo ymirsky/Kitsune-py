@@ -25,7 +25,7 @@ inputs = {
     }
 }
 KitPlugin = KitPlugin()
-KitPlugin.hyper_opt("input_data/mirai.pcap", 200000, 5)
+KitPlugin.hyper_opt("input_data/mirai.pcap", 2)
 
 #KitPlugin.run_series_stats(inputs)
 # Get feature list from pickle file
