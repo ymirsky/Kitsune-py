@@ -10,7 +10,6 @@ from datetime import datetime
 import sklearn
 import optuna
 from scipy.stats import norm
-import datetime
 
 # Class that provides a callable interface for Kitsune components.
 # Note that this approach nullifies the "incremental" aspect of Kitsune and significantly slows it down.
@@ -36,6 +35,7 @@ class KitPlugin:
                 "ADgrace" : ADgrace,
                 "timestamp" : datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             }
+        self.testFeatures = None
 
     # Calls Kitsune's get_feature_list function to build the list of features
     def feature_builder(self):
@@ -76,7 +76,10 @@ class KitPlugin:
         print("Building SHAP explainer")
         self.explainer = shap.Explainer(self.kitsune_model, np.array(self.features_list[min_train:max_train]))
         print("Calculating SHAP values")
-        self.shap_values = self.explainer.shap_values(np.array(self.features_list[min_test:max_test]))
+        if self.testFeatures != None:
+            self.shap_values = self.explainer.shap_values(np.array(self.testFeatures[min_test:max_test]))
+        else:
+            self.shap_values = self.explainer.shap_values(np.array(self.features_list[min_test:max_test]))
 
     # Writes the SHAP-values to a pickle-file
     def shap_values_pickle(self):
@@ -216,10 +219,13 @@ class KitPlugin:
                 "maxAE": inputs[session]["maxAE"],
                 "FMgrace": inputs[session]["FMgrace"],
                 "ADgrace": inputs[session]["ADgrace"],
-                "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             }
             self.feature_builder()
             self.kit_trainer(inputs[session]["training_min"], inputs[session]["training_max"])
+            if inputs[session]["input_path"] != inputs[session]["input_path_test"]:
+                self.testKit = Kitsune(inputs[session]["input_path_test"], inputs[session]["packet_limit"], inputs[session]["maxAE"], inputs[session]["FMgrace"], inputs[session]["ADgrace"])
+                self.testFeatures = self.testKit.get_feature_list()
             self.shap_values_builder(inputs[session]["training_min"], inputs[session]["training_max"], inputs[session]["testing_min"], inputs[session]["testing_max"])
             self.create_sheet(session)
         excel_file = "summary_statistics_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
@@ -285,3 +291,10 @@ class KitPlugin:
 
         print("Results exported to", excel_file_path)
         return study.best_trial
+
+    def calc_eer(self, RMSEs, expected):
+        fpr, tpr, threshold = sklearn.metrics.roc_curve(RMSEs, expected, pos_label=1)
+        fnr = 1-tpr
+        #eer_threshold = threshold[np.nanargmin(np.absolute((fnr-fpr)))]
+        EER = fpr[np.nanargmin(np.absolute((fnr-fpr)))]
+        return EER
