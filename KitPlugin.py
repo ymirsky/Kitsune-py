@@ -44,16 +44,23 @@ class KitPlugin:
         self.features_list = self.K.get_feature_list()
 
     # Loads Kitsune's feature list from a pickle file
-    def feature_loader(self):
+    def feature_loader(self, newpickle=None):
         print("Loading features from file")
-        with open('pickles/featureList.pkl', 'rb') as f:
+        path = 'pickles/featureList.pkl'
+        if newpickle != None:
+            path = newpickle
+        with open(path, 'rb') as f:
             features_list = pickle.load(f)
         self.features_list = features_list
 
     # Writes Kitsune's feature list to a pickle file
-    def feature_pickle(self):
+    def feature_pickle(self, newpickle=None):
         print("Writing features to file")
-        with open('pickles/featureList.pkl', 'wb') as f:
+        path = 'pickles/featureList.pkl'
+        if newpickle != None:
+            path = newpickle
+            print('here')
+        with open(path, 'wb') as f:
             pickle.dump(self.features_list, f)
 
     # Trains KitNET, using the specified index range of this class' feature list
@@ -80,30 +87,40 @@ class KitPlugin:
             self.shap_values = self.explainer.shap_values(np.array(self.testFeatures[min_test:max_test]))
         else:
             self.shap_values = self.explainer.shap_values(np.array(self.features_list[min_test:max_test]))
+        return self.shap_values
 
     # Writes the SHAP-values to a pickle-file
-    def shap_values_pickle(self):
-        with open('pickles/shap_values.pkl', 'wb') as f:
+    def shap_values_pickle(self, newpickle=None):
+        path = 'pickles/shap_values.pkl'
+        if newpickle != None:
+            path = newpickle
+        with open(path, 'wb') as f:
             pickle.dump(self.shap_values, f)
 
     # Gets the SHAP-values from a pickle-file
-    def shap_values_loader(self):
-        with open('pickles/shap_values.pkl', 'rb') as f:
+    def shap_values_loader(self, newpickle=None):
+        path = 'pickles/shap_values.pkl'
+        if newpickle != None:
+            path = newpickle
+        with open(path, 'rb') as f:
             self.shap_values = pickle.load(f)
+        return self.shap_values
 
     # Calculates summary statistics of SHAP-values
     def shap_stats_summary_builder(self, min_index, max_index, plot_type="dot"):
         return shap.summary_plot(self.shap_values, np.array(self.features_list[min_index:max_index]), plot_type=plot_type)
 
     # Creates an Excel-file containing summary statistics for each feature
-    def shap_stats_excel_export(self):
+    def shap_stats_excel_export(self, path=None):
         self.workbook = openpyxl.load_workbook('input_data/template_statistics_file.xlsx')
         self.create_sheet("mirai_60k_4asdf")
         excel_file = "summary_statistics_test.xlsx"
+        if path != None:
+            excel_file = path
         self.workbook.save(excel_file)
         print('done')
 
-    # Prints the three best and worst values for all statistics
+    # Calculates the three best and worst values for all statistics
     def get_high_low_indices(self):
         shap_transposed = self.shap_values.T
         # List of statistics functions
@@ -219,7 +236,7 @@ class KitPlugin:
                 "maxAE": inputs[session]["maxAE"],
                 "FMgrace": inputs[session]["FMgrace"],
                 "ADgrace": inputs[session]["ADgrace"],
-                "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             }
             self.feature_builder()
             self.kit_trainer(inputs[session]["training_min"], inputs[session]["training_max"])
@@ -228,7 +245,7 @@ class KitPlugin:
                 self.testFeatures = self.testKit.get_feature_list()
             self.shap_values_builder(inputs[session]["training_min"], inputs[session]["training_max"], inputs[session]["testing_min"], inputs[session]["testing_max"])
             self.create_sheet(session)
-        excel_file = "summary_statistics_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
+        excel_file = "summary_statistics_" + datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         self.workbook.save(excel_file)
 
     # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs
@@ -247,19 +264,13 @@ class KitPlugin:
             self.feature_loader()
             self.kit_trainer(0, 60000)
 
-            y_test = np.zeros((2000, 1))
+            y_test = np.zeros((10000, 1))
             y_pred = self.kit_runner(70000, 80000)
 
             # Do small test run with benign sample to find normalization
             print("Calculating normalization sample")
             benignSample = np.log(self.kit_runner(85000, 95000))
-            print('benign:')
-            print(benignSample)
-            print('prediction:')
-            print(y_pred.shape)
             logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
-            print(y_test.shape)
-            print(logProbs.shape)
             error = sklearn.metrics.mean_squared_error(y_test, logProbs)
             return error
 
@@ -293,17 +304,27 @@ class KitPlugin:
                 cell.fill = green_fill
 
         # Save the workbook to a file
-
-        # Save the workbook to a file
-        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
+        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         wb.save(excel_file_path)
 
         print("Results exported to", excel_file_path)
         return study.best_trial
 
-    def calc_eer(self, RMSEs, expected):
-        fpr, tpr, threshold = sklearn.metrics.roc_curve(RMSEs, expected, pos_label=1)
+    # Calculates an EER-score for a list of RMSEs
+    def calc_eer(self, RMSEs, labels):
+        fpr, tpr, threshold = sklearn.metrics.roc_curve(labels, RMSEs, pos_label=1)
         fnr = 1-tpr
         #eer_threshold = threshold[np.nanargmin(np.absolute((fnr-fpr)))]
         EER = fpr[np.nanargmin(np.absolute((fnr-fpr)))]
         return EER
+
+    # Calculates an AUC-score for a list of RMSEs and a list of expected values
+    def calc_auc(self, RMSEs, labels):
+        auc_score = sklearn.metrics.roc_auc_score(labels, RMSEs)
+        return auc_score
+
+    # Calculates an EER-score for a list of RMSEs and a list of expected values
+    def calc_auc_eer(self, RMSEs, labels):
+        return (self.calc_auc(RMSEs, labels), self.calc_eer(RMSEs, labels))
+
+    #
