@@ -6,10 +6,12 @@ import numpy as np
 import pickle
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
-from datetime import datetime
+from datetime import datetime, timedelta
 import sklearn
 import optuna
 from scipy.stats import norm
+import random
+from scapy.all import PcapReader, wrpcap
 
 # Class that provides a callable interface for Kitsune components.
 # Note that this approach nullifies the "incremental" aspect of Kitsune and significantly slows it down.
@@ -248,30 +250,43 @@ class KitPlugin:
         excel_file = "summary_statistics_" + datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         self.workbook.save(excel_file)
 
-    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs
-    def hyper_opt(self, input_path, runs):
-        self.K = Kitsune(input_path, 200000, 10, 5000, 50000, 0.1, 0.75)
-        self.feature_builder()
-        self.feature_pickle()
+    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
+    def hyper_opt(self, input_path, runs, packet_limit, load=False):
+        #self.K = Kitsune(input_path, packet_limit*1.3, 10, 5000, 50000, 0.1, 0.75)
+        if load:
+            self.feature_loader()
+        else:
+            self.feature_builder()
+            self.feature_pickle()
 
         def objective(trial):
             numAE = trial.suggest_int('numAE', 1, 10)
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
             hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
 
-            self.K = Kitsune(input_path, 100000, numAE, 5000, 50000, learning_rate, hidden_ratio)
+            self.K = Kitsune(input_path, packet_limit*1.3, numAE, 100000, 900000, learning_rate, hidden_ratio)
             # Load the feature list beforehand to save time
             self.feature_loader()
-            self.kit_trainer(0, 60000)
+            print('training on '+str(int(0.7*packet_limit))+' packets')
+            self.kit_trainer(0, int(0.7*packet_limit))
 
-            y_test = np.zeros((10000, 1))
-            y_pred = self.kit_runner(70000, 80000)
+            y_test = np.zeros((int(0.2*packet_limit), 1))
+            y_pred = self.kit_runner(int(0.7*packet_limit), int(0.9*packet_limit))
 
             # Do small test run with benign sample to find normalization
             print("Calculating normalization sample")
-            benignSample = np.log(self.kit_runner(85000, 95000))
-            logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
-            error = sklearn.metrics.mean_squared_error(y_test, logProbs)
+            #benignSample = np.log(self.kit_runner(int(0.5*packet_limit), int(0.6*packet_limit)))
+            #logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
+            print('predictions')
+            print(y_pred)
+            #print('normalization sample')
+            #print(benignSample)
+            #print('logProbs')
+            #print(logProbs)
+            error = sklearn.metrics.mean_squared_error(y_test, y_pred)
+
+            print('error')
+            print(error)
             return error
 
         study = optuna.create_study()
@@ -327,4 +342,49 @@ class KitPlugin:
     def calc_auc_eer(self, RMSEs, labels):
         return (self.calc_auc(RMSEs, labels), self.calc_eer(RMSEs, labels))
 
-    #
+    # Takes a random sample from a .pcap file, limited by the supplied sample size
+    def random_sample_pcap(self, input_path, output_path, sample_size):
+        # Initialize the sampled_packets list and a counter
+        sampled_packets = []
+        counter = 0
+
+        # Open the PCAP file for reading
+        with PcapReader(input_path) as pcap_reader:
+            for packet in pcap_reader:
+                counter += 1
+                if counter % 10000 == 0:
+                    print(counter)
+                if len(sampled_packets) < sample_size:
+                    sampled_packets.append(packet)
+                else:
+                    # Randomly decide whether to add the new packet or not
+                    probability = sample_size / counter
+                    if random.random() < probability:
+                        random_index = random.randint(0, sample_size - 1)
+                        sampled_packets[random_index] = packet
+
+        # Write the sampled packets to a new PCAP file while preserving the order
+        wrpcap(output_path, sampled_packets)
+
+        print(f"Sampled {sample_size} packets and saved to {output_path}")
+
+    # Takes the first n percentage out of every 1000 packets, does the same for the next 1000 packets
+    def interval_sample_pcap(self, input_path, output_path, percentage):
+        # Initialize the sampled_packets list and a counter
+        sampled_packets = []
+        counter = 0
+
+        # Open the PCAP file for reading
+        with PcapReader(input_path) as pcap_reader:
+            for packet in pcap_reader:
+                counter += 1
+                if counter % 10000 == 0:
+                    print(counter)
+
+                if counter % 1000 <= (1000*(percentage/100)):  # Sample the first 100 out of every 1000 packets
+                    sampled_packets.append(packet)
+
+        # Write the sampled packets to a new PCAP file while preserving the order
+        wrpcap(output_path, sampled_packets)
+
+        print(f"Sampled the first 100 packets out of every 1000 and saved to {output_path}")
