@@ -29,7 +29,7 @@ inputs = {
     }
 }
 KitPlugin = KitPlugin()
-KitPlugin.hyper_opt("input_data/mirai.pcap", 2)
+KitPlugin.hyper_opt("input_data/Monday-WorkingHours.pcap", 100)
 
 
 # Run series of statistics

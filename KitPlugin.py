@@ -219,7 +219,7 @@ class KitPlugin:
                 "maxAE": inputs[session]["maxAE"],
                 "FMgrace": inputs[session]["FMgrace"],
                 "ADgrace": inputs[session]["ADgrace"],
-                "timestamp": datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             }
             self.feature_builder()
             self.kit_trainer(inputs[session]["training_min"], inputs[session]["training_max"])
@@ -228,12 +228,12 @@ class KitPlugin:
                 self.testFeatures = self.testKit.get_feature_list()
             self.shap_values_builder(inputs[session]["training_min"], inputs[session]["training_max"], inputs[session]["testing_min"], inputs[session]["testing_max"])
             self.create_sheet(session)
-        excel_file = "summary_statistics_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
+        excel_file = "summary_statistics_" + datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         self.workbook.save(excel_file)
 
     # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs
     def hyper_opt(self, input_path, runs):
-        self.K = Kitsune(input_path, 200000, 10, 5000, 50000, 0.1, 0.75)
+        self.K = Kitsune(input_path, 11000000, 10, 1000000, 9000000, 0.1, 0.75)
         self.feature_builder()
         self.feature_pickle()
 
@@ -242,24 +242,18 @@ class KitPlugin:
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
             hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
 
-            self.K = Kitsune(input_path, 100000, numAE, 5000, 50000, learning_rate, hidden_ratio)
+            self.K = Kitsune(input_path, 100000, numAE, 1000000, 90000000, learning_rate, hidden_ratio)
             # Load the feature list beforehand to save time
             self.feature_loader()
-            self.kit_trainer(0, 60000)
+            self.kit_trainer(0, 10000000)
 
-            y_test = np.zeros((2000, 1))
-            y_pred = self.kit_runner(70000, 80000)
+            y_test = np.zeros((1000000, 1))
+            y_pred = self.kit_runner(10000000, 11000000)
 
             # Do small test run with benign sample to find normalization
             print("Calculating normalization sample")
-            benignSample = np.log(self.kit_runner(85000, 95000))
-            print('benign:')
-            print(benignSample)
-            print('prediction:')
-            print(y_pred.shape)
+            benignSample = np.log(self.kit_runner(8000000, 9000000))
             logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
-            print(y_test.shape)
-            print(logProbs.shape)
             error = sklearn.metrics.mean_squared_error(y_test, logProbs)
             return error
 
@@ -293,9 +287,7 @@ class KitPlugin:
                 cell.fill = green_fill
 
         # Save the workbook to a file
-
-        # Save the workbook to a file
-        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
+        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         wb.save(excel_file_path)
 
         print("Results exported to", excel_file_path)
