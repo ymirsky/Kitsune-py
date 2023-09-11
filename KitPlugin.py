@@ -6,10 +6,12 @@ import numpy as np
 import pickle
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
-from datetime import datetime
+from datetime import datetime, timedelta
 import sklearn
 import optuna
 from scipy.stats import norm
+import random
+from scapy.all import PcapReader, wrpcap
 
 # Class that provides a callable interface for Kitsune components.
 # Note that this approach nullifies the "incremental" aspect of Kitsune and significantly slows it down.
@@ -44,16 +46,23 @@ class KitPlugin:
         self.features_list = self.K.get_feature_list()
 
     # Loads Kitsune's feature list from a pickle file
-    def feature_loader(self):
+    def feature_loader(self, newpickle=None):
         print("Loading features from file")
-        with open('pickles/featureList.pkl', 'rb') as f:
+        path = 'pickles/featureList.pkl'
+        if newpickle != None:
+            path = newpickle
+        with open(path, 'rb') as f:
             features_list = pickle.load(f)
         self.features_list = features_list
 
     # Writes Kitsune's feature list to a pickle file
-    def feature_pickle(self):
+    def feature_pickle(self, newpickle=None):
         print("Writing features to file")
-        with open('pickles/featureList.pkl', 'wb') as f:
+        path = 'pickles/featureList.pkl'
+        if newpickle != None:
+            path = newpickle
+            print('here')
+        with open(path, 'wb') as f:
             pickle.dump(self.features_list, f)
 
     # Trains KitNET, using the specified index range of this class' feature list
@@ -80,30 +89,40 @@ class KitPlugin:
             self.shap_values = self.explainer.shap_values(np.array(self.testFeatures[min_test:max_test]))
         else:
             self.shap_values = self.explainer.shap_values(np.array(self.features_list[min_test:max_test]))
+        return self.shap_values
 
     # Writes the SHAP-values to a pickle-file
-    def shap_values_pickle(self):
-        with open('pickles/shap_values.pkl', 'wb') as f:
+    def shap_values_pickle(self, newpickle=None):
+        path = 'pickles/shap_values.pkl'
+        if newpickle != None:
+            path = newpickle
+        with open(path, 'wb') as f:
             pickle.dump(self.shap_values, f)
 
     # Gets the SHAP-values from a pickle-file
-    def shap_values_loader(self):
-        with open('pickles/shap_values.pkl', 'rb') as f:
+    def shap_values_loader(self, newpickle=None):
+        path = 'pickles/shap_values.pkl'
+        if newpickle != None:
+            path = newpickle
+        with open(path, 'rb') as f:
             self.shap_values = pickle.load(f)
+        return self.shap_values
 
     # Calculates summary statistics of SHAP-values
     def shap_stats_summary_builder(self, min_index, max_index, plot_type="dot"):
         return shap.summary_plot(self.shap_values, np.array(self.features_list[min_index:max_index]), plot_type=plot_type)
 
     # Creates an Excel-file containing summary statistics for each feature
-    def shap_stats_excel_export(self):
+    def shap_stats_excel_export(self, path=None):
         self.workbook = openpyxl.load_workbook('input_data/template_statistics_file.xlsx')
         self.create_sheet("mirai_60k_4asdf")
         excel_file = "summary_statistics_test.xlsx"
+        if path != None:
+            excel_file = path
         self.workbook.save(excel_file)
         print('done')
 
-    # Prints the three best and worst values for all statistics
+    # Calculates the three best and worst values for all statistics
     def get_high_low_indices(self):
         shap_transposed = self.shap_values.T
         # List of statistics functions
@@ -231,30 +250,43 @@ class KitPlugin:
         excel_file = "summary_statistics_" + datetime.now().strftime('%d-%m-%Y_%H-%M') + ".xlsx"
         self.workbook.save(excel_file)
 
-    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs
-    def hyper_opt(self, input_path, runs):
-        self.K = Kitsune(input_path, 11000000, 10, 1000000, 9000000, 0.1, 0.75)
-        self.feature_builder()
-        self.feature_pickle()
+    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
+    def hyper_opt(self, input_path, runs, packet_limit, load=False):
+        #self.K = Kitsune(input_path, packet_limit*1.3, 10, 5000, 50000, 0.1, 0.75)
+        if load:
+            self.feature_loader()
+        else:
+            self.feature_builder()
+            self.feature_pickle()
 
         def objective(trial):
             numAE = trial.suggest_int('numAE', 1, 10)
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
             hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
 
-            self.K = Kitsune(input_path, 100000, numAE, 1000000, 90000000, learning_rate, hidden_ratio)
+            self.K = Kitsune(input_path, packet_limit*1.3, numAE, 100000, 900000, learning_rate, hidden_ratio)
             # Load the feature list beforehand to save time
             self.feature_loader()
-            self.kit_trainer(0, 10000000)
+            print('training on '+str(int(0.7*packet_limit))+' packets')
+            self.kit_trainer(0, int(0.7*packet_limit))
 
-            y_test = np.zeros((1000000, 1))
-            y_pred = self.kit_runner(10000000, 11000000)
+            y_test = np.zeros((int(0.2*packet_limit), 1))
+            y_pred = self.kit_runner(int(0.7*packet_limit), int(0.9*packet_limit))
 
             # Do small test run with benign sample to find normalization
             print("Calculating normalization sample")
-            benignSample = np.log(self.kit_runner(8000000, 9000000))
-            logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
-            error = sklearn.metrics.mean_squared_error(y_test, logProbs)
+            #benignSample = np.log(self.kit_runner(int(0.5*packet_limit), int(0.6*packet_limit)))
+            #logProbs = norm.logsf(np.log(y_pred), np.mean(benignSample), np.std(benignSample))
+            print('predictions')
+            print(y_pred)
+            #print('normalization sample')
+            #print(benignSample)
+            #print('logProbs')
+            #print(logProbs)
+            error = sklearn.metrics.mean_squared_error(y_test, y_pred)
+
+            print('error')
+            print(error)
             return error
 
         study = optuna.create_study()
@@ -293,9 +325,66 @@ class KitPlugin:
         print("Results exported to", excel_file_path)
         return study.best_trial
 
-    def calc_eer(self, RMSEs, expected):
-        fpr, tpr, threshold = sklearn.metrics.roc_curve(RMSEs, expected, pos_label=1)
+    # Calculates an EER-score for a list of RMSEs
+    def calc_eer(self, RMSEs, labels):
+        fpr, tpr, threshold = sklearn.metrics.roc_curve(labels, RMSEs, pos_label=1)
         fnr = 1-tpr
         #eer_threshold = threshold[np.nanargmin(np.absolute((fnr-fpr)))]
         EER = fpr[np.nanargmin(np.absolute((fnr-fpr)))]
         return EER
+
+    # Calculates an AUC-score for a list of RMSEs and a list of expected values
+    def calc_auc(self, RMSEs, labels):
+        auc_score = sklearn.metrics.roc_auc_score(labels, RMSEs)
+        return auc_score
+
+    # Calculates an EER-score for a list of RMSEs and a list of expected values
+    def calc_auc_eer(self, RMSEs, labels):
+        return (self.calc_auc(RMSEs, labels), self.calc_eer(RMSEs, labels))
+
+    # Takes a random sample from a .pcap file, limited by the supplied sample size
+    def random_sample_pcap(self, input_path, output_path, sample_size):
+        # Initialize the sampled_packets list and a counter
+        sampled_packets = []
+        counter = 0
+
+        # Open the PCAP file for reading
+        with PcapReader(input_path) as pcap_reader:
+            for packet in pcap_reader:
+                counter += 1
+                if counter % 10000 == 0:
+                    print(counter)
+                if len(sampled_packets) < sample_size:
+                    sampled_packets.append(packet)
+                else:
+                    # Randomly decide whether to add the new packet or not
+                    probability = sample_size / counter
+                    if random.random() < probability:
+                        random_index = random.randint(0, sample_size - 1)
+                        sampled_packets[random_index] = packet
+
+        # Write the sampled packets to a new PCAP file while preserving the order
+        wrpcap(output_path, sampled_packets)
+
+        print(f"Sampled {sample_size} packets and saved to {output_path}")
+
+    # Takes the first n percentage out of every 1000 packets, does the same for the next 1000 packets
+    def interval_sample_pcap(self, input_path, output_path, percentage):
+        # Initialize the sampled_packets list and a counter
+        sampled_packets = []
+        counter = 0
+
+        # Open the PCAP file for reading
+        with PcapReader(input_path) as pcap_reader:
+            for packet in pcap_reader:
+                counter += 1
+                if counter % 10000 == 0:
+                    print(counter)
+
+                if counter % 1000 <= (1000*(percentage/100)):  # Sample the first 100 out of every 1000 packets
+                    sampled_packets.append(packet)
+
+        # Write the sampled packets to a new PCAP file while preserving the order
+        wrpcap(output_path, sampled_packets)
+
+        print(f"Sampled the first 100 packets out of every 1000 and saved to {output_path}")
