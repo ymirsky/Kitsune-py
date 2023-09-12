@@ -29,7 +29,7 @@ inputs = {
     }
 }
 KitPlugin = KitPlugin()
-KitPlugin.hyper_opt("input_data/Monday-WorkingHours_2Hrs.pcap", 100, 1000000, True)
+KitPlugin.hyper_opt("input_data/Monday-WorkingHours_10_percent_random.pcap", 100, 1000000, True)
 
 # Run series of statistics
 #KitPlugin.run_series_stats(inputs)

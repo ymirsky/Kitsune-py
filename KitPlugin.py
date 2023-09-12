@@ -252,10 +252,10 @@ class KitPlugin:
 
     # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
     def hyper_opt(self, input_path, runs, packet_limit, load=False):
-        #self.K = Kitsune(input_path, packet_limit*1.3, 10, 5000, 50000, 0.1, 0.75)
         if load:
             self.feature_loader()
         else:
+            self.K = Kitsune(input_path, packet_limit * 1.3, 10, 5000, 50000, 0.1, 0.75)
             self.feature_builder()
             self.feature_pickle()
 
@@ -264,7 +264,7 @@ class KitPlugin:
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
             hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
 
-            self.K = Kitsune(input_path, packet_limit*1.3, numAE, 100000, 900000, learning_rate, hidden_ratio)
+            self.K = Kitsune(input_path, packet_limit*1.3, numAE, 5000, 50000, learning_rate, hidden_ratio)
             # Load the feature list beforehand to save time
             self.feature_loader()
             print('training on '+str(int(0.7*packet_limit))+' packets')
