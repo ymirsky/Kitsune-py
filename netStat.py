@@ -70,7 +70,7 @@ class netStat:
 
         return src_subnet, dst_subnet
 
-    def updateGetStats(self, IPtype, srcMAC,dstMAC, srcIP, srcProtocol, dstIP, dstProtocol, datagramSize, timestamp):
+    def updateGetStats(self, IPtype, srcMAC,dstMAC, srcIP, srcProtocol, dstIP, dstProtocol, datagramSize, timestamp, tcpFlags = '', payload = 0):
         # Host BW: Stats on the srcIP's general Sender Statistics
         # Hstat = np.zeros((3*len(self.Lambdas,)))
         # for i in range(len(self.Lambdas)):

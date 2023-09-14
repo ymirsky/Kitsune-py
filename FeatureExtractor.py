@@ -63,7 +63,6 @@ class FE:
         ##If file is TSV (pre-parsed by wireshark script)
         if type == "tsv":
             self.parse_type = "tsv"
-
         ##If file is pcap
         elif type == "pcap" or type == 'pcapng':
             # Try parsing via tshark dll of wireshark (faster)
@@ -120,6 +119,8 @@ class FE:
             framelen = row[1]
             srcIP = ''
             dstIP = ''
+            tcpFlags = row[19]
+            payload = int(row[20])+int(row[21])
             if row[4] != '':  # IPv4
                 srcIP = row[4]
                 dstIP = row[5]
@@ -128,8 +129,7 @@ class FE:
                 srcIP = row[17]
                 dstIP = row[18]
                 IPtype = 1
-            srcproto = row[6] + row[
-                8]  # UDP or TCP port: the concatenation of the two port strings will will results in an OR "[tcp|udp]"
+            srcproto = row[6] + row[8]  # UDP or TCP port: the concatenation of the two port strings will will results in an OR "[tcp|udp]"
             dstproto = row[7] + row[9]  # UDP or TCP port
             srcMAC = row[2]
             dstMAC = row[3]
@@ -147,7 +147,8 @@ class FE:
                 elif srcIP + srcproto + dstIP + dstproto == '':  # some other protocol
                     srcIP = row[2]  # src MAC
                     dstIP = row[3]  # dst MAC
-
+            print(tcpFlags)
+            print(payload)
         elif self.parse_type == "scapy":
             packet = self.scapyin[self.curPacketIndx]
             IPtype = np.nan
@@ -201,7 +202,7 @@ class FE:
         try:
             return self.nstat.updateGetStats(IPtype, srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto,
                                                  int(framelen),
-                                                 float(timestamp))
+                                                 float(timestamp), tcpFlags, payload)
         except Exception as e:
             print(e)
             return []
@@ -209,7 +210,7 @@ class FE:
 
     def pcap2tsv_with_tshark(self):
         print('Parsing with tshark...')
-        fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e udp.srcport -e udp.dstport -e icmp.type -e icmp.code -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 -e arp.dst.hw_mac -e arp.dst.proto_ipv4 -e ipv6.src -e ipv6.dst"
+        fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e udp.srcport -e udp.dstport -e icmp.type -e icmp.code -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 -e arp.dst.hw_mac -e arp.dst.proto_ipv4 -e ipv6.src -e ipv6.dst -e tcp.flags -e tcp.len -e udp.length"
         cmd =  '"' + self._tshark + '" -r '+ self.path +' -T fields '+ fields +' -E header=y -E occurrence=f > '+self.path+".tsv"
         subprocess.call(cmd,shell=True)
         print("tshark parsing complete. File saved as: "+self.path +".tsv")
