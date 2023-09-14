@@ -28,8 +28,8 @@ inputs = {
         "testing_max": 70025
     }
 }
-KitPlugin = KitPlugin()
-KitPlugin.hyper_opt("input_data/Monday-WorkingHours_10_percent_random.pcap", 100, 1000000, True)
+#KitPlugin = KitPlugin()
+#KitPlugin.hyper_opt("input_data/Monday-WorkingHours_10_percent_random.pcap", 100, 1000000)
 
 # Run series of statistics
 #KitPlugin.run_series_stats(inputs)
@@ -70,3 +70,7 @@ KitPlugin.hyper_opt("input_data/Monday-WorkingHours_10_percent_random.pcap", 100
 
 # Out of every 1000 packets, it only keeps the first 100; so, only 10% of packets is kept. It will then do the same for the next 1000 packets
 #KitPlugin.interval_sample_pcap("input_data/Monday-WorkingHours.pcap", "input_data/Monday-WorkingHours_10_percent.pcap", 10)
+
+# Sample 10 percent of conversations
+KitPlugin = KitPlugin()
+KitPlugin.sample_percentage_conversations(20, "input_data/mirai.pcap", "input_data/mirai_20.pcap")
