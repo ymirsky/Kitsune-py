@@ -264,7 +264,7 @@ class KitPlugin:
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
             hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
 
-            self.K = Kitsune(input_path, packet_limit*1.3, numAE, 5000, 50000, learning_rate, hidden_ratio)
+            self.K = Kitsune(input_path, packet_limit*1.3, numAE, int(0.1*packet_limit), int(0.6*packet_limit), learning_rate, hidden_ratio)
             # Load the feature list beforehand to save time
             self.feature_loader()
             print('training on '+str(int(0.7*packet_limit))+' packets')
