@@ -73,4 +73,4 @@ inputs = {
 
 # Sample 10 percent of conversations
 KitPlugin = KitPlugin()
-KitPlugin.sample_percentage_conversations(20, "input_data/mirai.pcap", "input_data/mirai_20.pcap")
+KitPlugin.sample_percentage_conversations(20, "input_data/Monday-WorkingHours.pcap", "input_data/Monday-WorkingHours_10_conv.pcap")

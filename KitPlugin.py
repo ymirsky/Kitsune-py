@@ -11,7 +11,7 @@ import sklearn
 import optuna
 from scipy.stats import norm
 import random
-from scapy.all import PcapReader, wrpcap, rdpcap, IP, TCP, UDP
+from scapy.all import PcapReader, PcapWriter, wrpcap, rdpcap, IP, TCP, UDP
 
 # Class that provides a callable interface for Kitsune components.
 # Note that this approach nullifies the "incremental" aspect of Kitsune and significantly slows it down.
@@ -389,36 +389,38 @@ class KitPlugin:
 
         print(f"Sampled the first 100 packets out of every 1000 and saved to {output_path}")
 
-    # Extracts the conversations from a pcap-file
+        # Extracts the conversations from a pcap-file
+
     def extract_conversations(self, input_path):
         print('Reading pcap-file')
-        packets = rdpcap(input_path)
         conversations = []
         current_conversation = []
         counter = 0
-        print('Extracting conversations')
-        length = len(packets)
-        for packet in packets:
-            counter += 1
-            if counter % 10000 == 0:
-                print(counter + " / " + length + " packets processed")
-            if IP in packet:
-                if TCP in packet:
-                    conversation_key = (packet[IP].src, packet[IP].dst, packet[TCP].sport, packet[TCP].dport)
-                elif UDP in packet:
-                    conversation_key = (packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport)
-                else:
-                    continue
 
-                if conversation_key not in current_conversation:
-                    current_conversation.append(conversation_key)
-                    conversations.append([])
+        with PcapReader(input_path) as pcap_reader:
+            for packet in pcap_reader:
+                counter += 1
+                if counter % 10000 == 0:
+                    print(f"{counter} packets processed")
 
-                conversations[current_conversation.index(conversation_key)].append(packet)
+                if IP in packet:
+                    if TCP in packet:
+                        conversation_key = (packet[IP].src, packet[IP].dst, packet[TCP].sport, packet[TCP].dport)
+                    elif UDP in packet:
+                        conversation_key = (packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport)
+                    else:
+                        continue
+
+                    if conversation_key not in current_conversation:
+                        current_conversation.append(conversation_key)
+                        conversations.append([])
+
+                    conversations[current_conversation.index(conversation_key)].append(packet)
 
         return conversations
 
-    # Writes a list of conversations to a pcap-file
+        # Writes a list of conversations to a pcap-file
+
     def create_pcap_from_conversations(self, conversations, output_path):
         print('Writing packets to pcap-file')
         packets_to_write = []
@@ -426,13 +428,17 @@ class KitPlugin:
         for conversation in conversations:
             packets_to_write.extend(conversation)
 
-        wrpcap(output_path, packets_to_write)
+        with PcapWriter(output_path) as pcap_writer:
+            pcap_writer.write(packets_to_write)
 
-    # Sample a percentage of conversations (not of packets)
+        # Sample a percentage of conversations (not of packets)
+
     def sample_percentage_conversations(self, percentage, input_path, output_path=None):
         conversation_list = self.extract_conversations(input_path)
-        print('Sampling " + percentage + " percent of packets')
+        print(f'Sampling {percentage} percent of conversations')
         sampled_conversations = random.sample(conversation_list, int(0.01 * percentage * len(conversation_list)))
+
         if output_path is not None:
             self.create_pcap_from_conversations(sampled_conversations, output_path)
+
         return sampled_conversations
