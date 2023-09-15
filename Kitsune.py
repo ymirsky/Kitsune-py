@@ -25,7 +25,7 @@ import numpy as np
 # SOFTWARE.
 
 class Kitsune:
-    def __init__(self,file_path,limit,max_autoencoder_size=10,FM_grace_period=None,AD_grace_period=10000,learning_rate=0.1,hidden_ratio=0.75,):
+    def __init__(self,file_path,limit,max_autoencoder_size=10,FM_grace_period=None,AD_grace_period=10000,learning_rate=0.1,hidden_ratio=0.75):
         #init packet feature extractor (AfterImage)
         self.FE = FE(file_path,limit)
 

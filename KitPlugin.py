@@ -1,3 +1,5 @@
+import math
+
 import openpyxl
 
 from Kitsune import Kitsune
@@ -419,8 +421,7 @@ class KitPlugin:
 
         return conversations
 
-        # Writes a list of conversations to a pcap-file
-
+    # Writes a list of conversations to a pcap-file
     def create_pcap_from_conversations(self, conversations, output_path):
         print('Writing packets to pcap-file')
         packets_to_write = []
@@ -431,8 +432,7 @@ class KitPlugin:
         with PcapWriter(output_path) as pcap_writer:
             pcap_writer.write(packets_to_write)
 
-        # Sample a percentage of conversations (not of packets)
-
+    # Sample a percentage of conversations (not of packets)
     def sample_percentage_conversations(self, percentage, input_path, output_path=None):
         conversation_list = self.extract_conversations(input_path)
         print(f'Sampling {percentage} percent of conversations')
@@ -442,3 +442,40 @@ class KitPlugin:
             self.create_pcap_from_conversations(sampled_conversations, output_path)
 
         return sampled_conversations
+
+    # Trains Kitsune on a list of conversations
+    def train_Kitsune_on_conversations(self, conversation_list):
+        self.K = Kitsune("input_data/empty.pcap", np.Inf, 6, math.floor(len(conversation_list)*0.1), math.floor(len(conversation_list)*0.9))
+        for conversation in conversation_list:
+            self.K.feed_batch(conversation)
+
+    # Runs Kitsune on a list of conversations and returns a list of anomaly-scores per conversation
+    def run_Kitsune_on_conversations(self, conversation_list):
+        result_list = []
+        for conversation in conversation_list:
+            result = self.K.feed_batch(conversation)
+            # Normalize result if maximum is a positive
+            if max(result) >= 1.0:
+                result = [float(i) / max(result) for i in result]
+            result_list.append(result)
+        return result_list
+
+    # Loads conversations list from a pickle file
+    def conversations_loader(self, newpickle=None):
+        print("Loading conversations from file")
+        path = 'pickles/conversationsList.pkl'
+        if newpickle != None:
+            path = newpickle
+        with open(path, 'rb') as f:
+            conversations_list = pickle.load(f)
+        self.conversations_list = conversations_list
+
+    # Writes conversation list to a pickle file
+    def conversation_pickle(self, newpickle=None):
+        print("Writing conversations to file")
+        path = 'pickles/conversationsList.pkl'
+        if newpickle != None:
+            path = newpickle
+            print('here')
+        with open(path, 'wb') as f:
+            pickle.dump(self.conversations_list, f)

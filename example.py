@@ -73,4 +73,6 @@ inputs = {
 
 # Sample 10 percent of conversations
 KitPlugin = KitPlugin()
-KitPlugin.sample_percentage_conversations(20, "input_data/Monday-WorkingHours.pcap", "input_data/Monday-WorkingHours_10_conv.pcap")
+conversations = KitPlugin.extract_conversations("input_data/Monday-WorkingHours_10_percent_random.pcap")
+KitPlugin.conversation_pickle(conversations)
+KitPlugin.train_Kitsune_on_conversations(conversations)
