@@ -63,7 +63,6 @@ class KitPlugin:
         path = 'pickles/featureList.pkl'
         if newpickle != None:
             path = newpickle
-            print('here')
         with open(path, 'wb') as f:
             pickle.dump(self.features_list, f)
 
@@ -476,6 +475,5 @@ class KitPlugin:
         path = 'pickles/conversationsList.pkl'
         if newpickle != None:
             path = newpickle
-            print('here')
         with open(path, 'wb') as f:
             pickle.dump(self.conversations_list, f)
