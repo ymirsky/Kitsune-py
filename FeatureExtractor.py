@@ -17,6 +17,7 @@ from scapy.all import *
 import os.path
 import platform
 import subprocess
+import csv
 
 
 #Extracts Kitsune features from given pcap file one packet at a time using "get_next_vector()"
@@ -119,8 +120,10 @@ class FE:
             framelen = row[1]
             srcIP = ''
             dstIP = ''
-            tcpFlags = row[19]
-            payload = int(row[20])+int(row[21])
+            tcpFlags = ''
+            #tcpFlags = row[19]
+            payload = ''
+            #payload = int(row[20])+int(row[21])
             if row[4] != '':  # IPv4
                 srcIP = row[4]
                 dstIP = row[5]
@@ -147,8 +150,6 @@ class FE:
                 elif srcIP + srcproto + dstIP + dstproto == '':  # some other protocol
                     srcIP = row[2]  # src MAC
                     dstIP = row[3]  # dst MAC
-            print(tcpFlags)
-            print(payload)
         elif self.parse_type == "scapy":
             packet = self.scapyin[self.curPacketIndx]
             IPtype = np.nan
@@ -218,14 +219,28 @@ class FE:
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())
     
-    def get_all_vectors(self):
+    def get_all_vectors(self, csv_path=False):
         vectorList = []
-        while True:
-            if self.curPacketIndx % 1000 == 0:
-                print(self.curPacketIndx)
-            vector = self.get_next_vector()
-            if len(vector) == 0 or self.curPacketIndx > self.limit:
-                self.curPacketIndx = 0
-                return vectorList
-            else:
-                vectorList.append(vector)
+        if csv_path:
+            with open(csv_path, mode='w', newline='') as csv_file:
+                csv_writer = csv.writer(csv_file)
+                while True:
+                    if self.curPacketIndx % 10000 == 0:
+                        print(self.curPacketIndx)
+                    vector = self.get_next_vector()
+                    if len(vector) == 0 or self.curPacketIndx > self.limit:
+                        self.curPacketIndx = 0
+                        return csv_path
+                    else:
+                        csv_writer.writerow(vector)
+        else:
+            while True:
+                if self.curPacketIndx % 1000 == 0:
+                    print(self.curPacketIndx)
+                vector = self.get_next_vector()
+                if len(vector) == 0 or self.curPacketIndx > self.limit:
+                    self.curPacketIndx = 0
+                    return vectorList
+                else:
+                   vectorList.append(vector)
+

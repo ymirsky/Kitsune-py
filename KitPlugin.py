@@ -42,10 +42,11 @@ class KitPlugin:
         self.testFeatures = None
 
     # Calls Kitsune's get_feature_list function to build the list of features
-    def feature_builder(self):
+    def feature_builder(self, csv=False):
         print("Building features")
         # Dummy-running Kitsune to get a list of features
-        self.features_list = self.K.get_feature_list()
+        self.features_list = self.K.get_feature_list(csv)
+        return self.features_list
 
     # Loads Kitsune's feature list from a pickle file
     def feature_loader(self, newpickle=None):
@@ -70,6 +71,12 @@ class KitPlugin:
     def kit_trainer(self, min_index, max_index):
         print("Training")
         self.K.feed_batch(self.features_list[min_index:max_index])
+        print("Training finished")
+
+    # Trains KitNET, using a supplied feature list
+    def kit_trainer_supplied_features(self, features_list):
+        print("Training")
+        self.K.feed_batch(features_list)
         print("Training finished")
 
     # Runs KitNET, using specified index range of this class' feature list
@@ -390,8 +397,7 @@ class KitPlugin:
 
         print(f"Sampled the first 100 packets out of every 1000 and saved to {output_path}")
 
-        # Extracts the conversations from a pcap-file
-
+    # Extracts the conversations from a pcap-file
     def extract_conversations(self, input_path):
         print('Reading pcap-file')
         conversations = []
@@ -418,6 +424,7 @@ class KitPlugin:
 
                     conversations[current_conversation.index(conversation_key)].append(packet)
 
+        self.conversations_list = conversations
         return conversations
 
     # Writes a list of conversations to a pcap-file
@@ -440,6 +447,7 @@ class KitPlugin:
         if output_path is not None:
             self.create_pcap_from_conversations(sampled_conversations, output_path)
 
+        self.conversations_list = sampled_conversations
         return sampled_conversations
 
     # Trains Kitsune on a list of conversations
@@ -449,14 +457,19 @@ class KitPlugin:
             self.K.feed_batch(conversation)
 
     # Runs Kitsune on a list of conversations and returns a list of anomaly-scores per conversation
-    def run_Kitsune_on_conversations(self, conversation_list):
+    def run_Kitsune_on_conversations(self, conversation_list, threshold):
         result_list = []
+        malicious = 0
         for conversation in conversation_list:
             result = self.K.feed_batch(conversation)
             # Normalize result if maximum is a positive
             if max(result) >= 1.0:
                 result = [float(i) / max(result) for i in result]
-            result_list.append(result)
+            # If one of the results is higher than the threshold, then mark as malicious
+            if max(result) > threshold:
+                malicious = 1
+            # Add a tuple of conversation and malicious/benign
+            result_list.append((conversation, malicious))
         return result_list
 
     # Loads conversations list from a pickle file
@@ -468,6 +481,7 @@ class KitPlugin:
         with open(path, 'rb') as f:
             conversations_list = pickle.load(f)
         self.conversations_list = conversations_list
+        return conversations_list
 
     # Writes conversation list to a pickle file
     def conversation_pickle(self, newpickle=None):
@@ -477,3 +491,20 @@ class KitPlugin:
             path = newpickle
         with open(path, 'wb') as f:
             pickle.dump(self.conversations_list, f)
+
+    # Verifies a batch of conversations to be benign or malicious
+    def verify_test_results(self, conv_list, threshold):
+        result_list = []
+        for conv in conv_list:
+            # If one of the results is higher than the threshold, then mark as malicious
+            malicious = 0
+            if max(conv[1]) > threshold:
+                malicious = 1
+            result_list.append((conv[0], malicious))
+        return result_list
+
+    def load_pcap_to_features(self, input_path):
+        print('Running dummy instance of Kitsune')
+        dummyKit = Kitsune(input_path, np.Inf, 6, 10, 15)
+        self.features_list = dummyKit.get_feature_list()
+        return self.features_list

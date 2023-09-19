@@ -1,4 +1,7 @@
+from math import floor
+
 import numpy as np
+from scapy.utils import rdpcap
 
 from KitPlugin import KitPlugin
 
@@ -72,8 +75,24 @@ inputs = {
 #KitPlugin.interval_sample_pcap("input_data/Monday-WorkingHours.pcap", "input_data/Monday-WorkingHours_10_percent.pcap", 10)
 
 # Sample 10 percent of conversations
-KitPlugin = KitPlugin()
-KitPlugin.sample_percentage_conversations(10, "input_data/Monday-WorkingHours.pcap", "input_data/Monday-WorkingHours-10-random-conv.pcap")
-#conversations = KitPlugin.extract_conversations("input_data/mirai.pcap")
-#KitPlugin.conversation_pickle()
-#KitPlugin.train_Kitsune_on_conversations(conversations)
+#SampleKitPlugin = KitPlugin()
+##conversations = SampleKitPlugin.sample_percentage_conversations(10, "input_data/Monday_Split/17_01-18_01.pcapng", "input_data/Monday_Split/17_01-18_01-sample-10.pcap")
+#conversations = SampleKitPlugin.conversations_loader('pickles/17_01-18_01_sample_10_conv')
+#packets = rdpcap('input_data/Monday_Split/17_01-18_01-sample-10.pcap')
+#features = SampleKitPlugin.load_pcap_to_features('input_data/Monday_Split/17_01-18_01-sample-10.pcap')
+
+#print('conversations: '+str(len(conversations)))
+#print('packets: '+str(len(packets)))
+#print('feature lists: '+str(len(features)))
+
+#del SampleKitPlugin
+
+#NewKitPlugin = KitPlugin('input_data/Monday_Split/17_01-18_01-sample-10.pcap', num_autenc=6, FMgrace=int(0.05*len(features)), int(0.95*len(ADgrace)))
+
+# Train Kitsune
+#NewKitPlugin.kit_trainer_supplied_features(features)
+
+# Open TSV file and extract features
+KitPlugin = KitPlugin(input_path='input_data/Monday-WorkingHours.pcap.tsv', packet_limit=np.Inf, num_autenc=6, FMgrace=11000000, ADgrace=12000000, learning_rate=0.1, hidden_ratio=0.75)
+features = KitPlugin.feature_builder('input_data/features.csv')
+KitPlugin.feature_pickle()
