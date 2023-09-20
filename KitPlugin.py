@@ -530,13 +530,12 @@ class KitPlugin:
                 for row in rd:
                     print(pkt_iter)
                     # Labels is the list of conversations, that has previously been sampled to 10 percent of conversations
-                    hashVal = hash(row[4]+row[6]+row[5]+row[7])
-                    if hashVal in labels:
-                        print('match')
-                        label_iter = labels[hashVal]
-                        row.append(str(pkt_iter))
-                        row.append(str(label_iter))
-                        wr.writerow(row)
-                        break
+                    for label in labels:
+                        if (row[4] == label[0] and row[6] == label[1] and row[5] == label[2] and row[7] == label[3]) or (row[4] == label[2] and row[6] == label[3] and row[5] == label[0] and row[7] == label[1]):
+                            label_iter = label[4]
+                            row.append(str(pkt_iter))
+                            row.append(str(label_iter))
+                            wr.writerow(row)
+                            break
                     pkt_iter += 1
             op.close()
