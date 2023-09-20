@@ -1,3 +1,4 @@
+import csv
 import math
 
 import openpyxl
@@ -508,3 +509,33 @@ class KitPlugin:
         dummyKit = Kitsune(input_path, np.Inf, 6, 10, 15)
         self.features_list = dummyKit.get_feature_list()
         return self.features_list
+
+    def read_label_file(self, csvpath):
+        with open(csvpath, newline='') as csvfile:
+            returnList = []
+            labelreader = csv.reader(csvfile, delimiter=' ')
+            for row in labelreader:
+                row = row[0].strip('][').split(',')
+                returnList.append(row)
+            return returnList
+
+    def find_packets_by_conversation(self, tsvpath, outpath, labels):
+        # We open the output writer to write to a new TSV file
+        with open(outpath, 'w') as op:
+            wr = csv.writer(op)
+            # We open the reader to get the packets from the original TSV file
+            with open(tsvpath) as fd:
+                rd = csv.reader(fd, delimiter="\t", quotechar='"')
+                pkt_iter = -1
+                for row in rd:
+                    print(pkt_iter)
+                    # Labels is the list of conversations, that has previously been sampled to 10 percent of conversations
+                    for label in labels:
+                        if (row[4] == label[0] and row[6] == label[1] and row[5] == label[2] and row[7] == label[3]) or (row[4] == label[2] and row[6] == label[3] and row[5] == label[0] and row[7] == label[1]):
+                            label_iter = label[4]
+                            row.append(str(pkt_iter))
+                            row.append(str(label_iter))
+                            wr.writerow(row)
+                            break
+                    pkt_iter += 1
+            op.close()

@@ -225,7 +225,7 @@ class FE:
             with open(csv_path, mode='w', newline='') as csv_file:
                 csv_writer = csv.writer(csv_file)
                 while True:
-                    if self.curPacketIndx % 10000 == 0:
+                    if self.curPacketIndx % 100000 == 0:
                         print(self.curPacketIndx)
                     vector = self.get_next_vector()
                     if len(vector) == 0 or self.curPacketIndx > self.limit:

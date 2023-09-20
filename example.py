@@ -2,6 +2,7 @@ from math import floor
 
 import numpy as np
 from scapy.utils import rdpcap
+from random import sample
 
 from KitPlugin import KitPlugin
 
@@ -93,6 +94,19 @@ inputs = {
 #NewKitPlugin.kit_trainer_supplied_features(features)
 
 # Open TSV file and extract features
-KitPlugin = KitPlugin(input_path='input_data/Monday-WorkingHours.pcap.tsv', packet_limit=np.Inf, num_autenc=6, FMgrace=11000000, ADgrace=12000000, learning_rate=0.1, hidden_ratio=0.75)
-features = KitPlugin.feature_builder('input_data/features.csv')
-KitPlugin.feature_pickle()
+#KitPlugin = KitPlugin(input_path='input_data/Monday-WorkingHours.pcap.tsv', packet_limit=np.Inf, num_autenc=6, FMgrace=11000000, ADgrace=12000000, learning_rate=0.1, hidden_ratio=0.75)
+#features = KitPlugin.feature_builder('input_data/features.csv')
+#KitPlugin.feature_pickle()
+
+KitPlugin = KitPlugin()
+labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
+iter = 0
+for label in labels:
+    print(iter)
+    iter += 1
+    label.append(str(labels.index(label)-1))
+print(label[0])
+# We sample 10 percent of labels
+labels = sample(labels, int(0.1*len(labels)))
+KitPlugin.find_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_cleaned.pcap.tsv', labels)
+
