@@ -101,12 +101,14 @@ inputs = {
 KitPlugin = KitPlugin()
 labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
 iter = 0
+labelDict = {}
 for label in labels:
-    print(iter)
+    hashVal = hash(label[0]+label[1]+label[2]+label[3])
+    labelDict[hashVal] = iter
+    hashVal = hash(label[2] + label[3] + label[0] + label[1])
+    labelDict[hashVal] = iter
     iter += 1
-    label.append(str(labels.index(label)-1))
-print(label[0])
 # We sample 10 percent of labels
 labels = sample(labels, int(0.1*len(labels)))
-KitPlugin.find_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_cleaned.pcap.tsv', labels)
+KitPlugin.find_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_cleaned_alt.pcap.tsv', labels)
 
