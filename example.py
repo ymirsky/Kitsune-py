@@ -105,8 +105,7 @@ for label in labels:
     print(iter)
     iter += 1
     label.append(str(labels.index(label)-1))
-print(label[0])
 # We sample 10 percent of labels
 labels = sample(labels, int(0.1*len(labels)))
-KitPlugin.find_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_cleaned.pcap.tsv', labels)
+KitPlugin.find_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_nohash.pcap.tsv', labels)
 

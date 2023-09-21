@@ -532,9 +532,11 @@ class KitPlugin:
                     # Labels is the list of conversations, that has previously been sampled to 10 percent of conversations
                     for label in labels:
                         if (row[4] == label[0] and row[6] == label[1] and row[5] == label[2] and row[7] == label[3]) or (row[4] == label[2] and row[6] == label[3] and row[5] == label[0] and row[7] == label[1]):
-                            label_iter = label[4]
+                            label_iter = label[5]
+                            label_val = label[4]
                             row.append(str(pkt_iter))
                             row.append(str(label_iter))
+                            row.append(str(label_val))
                             wr.writerow(row)
                             break
                     pkt_iter += 1
