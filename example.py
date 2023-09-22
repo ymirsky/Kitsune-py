@@ -1,3 +1,5 @@
+import csv
+import math
 from math import floor
 
 import numpy as np
@@ -99,13 +101,27 @@ inputs = {
 #KitPlugin.feature_pickle()
 
 KitPlugin = KitPlugin()
-labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
-iter = 0
-for label in labels:
-    print(iter)
-    iter += 1
-    label.append(str(labels.index(label)-1))
+#labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
+#iter = 0
+#for label in labels:
+#    iter += 1
+#    label.append(str(labels.index(label)-1))
 # We sample 10 percent of labels
-labels = sample(labels, int(0.1*len(labels)))
-KitPlugin.find_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_nohash.pcap.tsv', labels)
+#labels = sample(labels, int(0.1*len(labels)))
 
+#with open('input_data/Monday-WorkingHours.pcap.tsv') as csvfile:
+#    packetreader = csv.reader(csvfile)
+#    counter = 0
+#    for row in packetreader:
+#        if row:
+#            counter +=1
+#        if counter % 10000 == 0:
+#            print(counter)
+
+#KitPlugin.sample_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_nohash.pcap.tsv', labels)
+# Map samples to features of an existing featureList
+#KitPlugin.map_packets_to_features('input_data/Monday-WorkingHours_nohash.pcap.tsv', 'input_data/features.csv', 'input_data/sampled_features.csv')
+
+# Total cutoff should be length of the sampled features file, training size is 0.7 times the total size
+# 50 test runs
+KitPlugin.hyper_opt_KitNET("input_data/sampled_features.csv", int(0.7*338105), 338105, 50)

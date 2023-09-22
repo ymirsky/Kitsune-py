@@ -4,6 +4,7 @@ import math
 import openpyxl
 
 from Kitsune import Kitsune
+from KitNET.KitNET import KitNET
 import shap
 import numpy as np
 import pickle
@@ -351,127 +352,127 @@ class KitPlugin:
     def calc_auc_eer(self, RMSEs, labels):
         return (self.calc_auc(RMSEs, labels), self.calc_eer(RMSEs, labels))
 
-    # Takes a random sample from a .pcap file, limited by the supplied sample size
-    def random_sample_pcap(self, input_path, output_path, sample_size):
-        # Initialize the sampled_packets list and a counter
-        sampled_packets = []
-        counter = 0
+    # DEPRECATED Takes a random sample from a .pcap file, limited by the supplied sample size
+    #def random_sample_pcap(self, input_path, output_path, sample_size):
+    #    # Initialize the sampled_packets list and a counter
+    #    sampled_packets = []
+    #    counter = 0
 
         # Open the PCAP file for reading
-        with PcapReader(input_path) as pcap_reader:
-            for packet in pcap_reader:
-                counter += 1
-                if counter % 10000 == 0:
-                    print(counter)
-                if len(sampled_packets) < sample_size:
-                    sampled_packets.append(packet)
-                else:
-                    # Randomly decide whether to add the new packet or not
-                    probability = sample_size / counter
-                    if random.random() < probability:
-                        random_index = random.randint(0, sample_size - 1)
-                        sampled_packets[random_index] = packet
+    #    with PcapReader(input_path) as pcap_reader:
+    #        for packet in pcap_reader:
+    #            counter += 1
+    #            if counter % 10000 == 0:
+    #                print(counter)
+    #            if len(sampled_packets) < sample_size:
+    #                sampled_packets.append(packet)
+    #            else:
+    #                # Randomly decide whether to add the new packet or not
+    #                probability = sample_size / counter
+    #                if random.random() < probability:
+    #                    random_index = random.randint(0, sample_size - 1)
+    #                    sampled_packets[random_index] = packet
 
         # Write the sampled packets to a new PCAP file while preserving the order
-        wrpcap(output_path, sampled_packets)
+    #    wrpcap(output_path, sampled_packets)
 
-        print(f"Sampled {sample_size} packets and saved to {output_path}")
+    #    print(f"Sampled {sample_size} packets and saved to {output_path}")
 
-    # Takes the first n percentage out of every 1000 packets, does the same for the next 1000 packets
-    def interval_sample_pcap(self, input_path, output_path, percentage):
-        # Initialize the sampled_packets list and a counter
-        sampled_packets = []
-        counter = 0
+    # DEPRECATED Takes the first n percentage out of every 1000 packets, does the same for the next 1000 packets
+    #def interval_sample_pcap(self, input_path, output_path, percentage):
+    #    # Initialize the sampled_packets list and a counter
+    #    sampled_packets = []
+    #    counter = 0
 
-        # Open the PCAP file for reading
-        with PcapReader(input_path) as pcap_reader:
-            for packet in pcap_reader:
-                counter += 1
-                if counter % 10000 == 0:
-                    print(counter)
+    #    # Open the PCAP file for reading
+    #    with PcapReader(input_path) as pcap_reader:
+    #        for packet in pcap_reader:
+    #            counter += 1
+    #            if counter % 10000 == 0:
+    #                print(counter)
 
-                if counter % 1000 <= (1000*(percentage/100)):  # Sample the first 100 out of every 1000 packets
-                    sampled_packets.append(packet)
+    #            if counter % 1000 <= (1000*(percentage/100)):  # Sample the first 100 out of every 1000 packets
+    #                sampled_packets.append(packet)
 
         # Write the sampled packets to a new PCAP file while preserving the order
-        wrpcap(output_path, sampled_packets)
+    #    wrpcap(output_path, sampled_packets)
 
-        print(f"Sampled the first 100 packets out of every 1000 and saved to {output_path}")
+    #    print(f"Sampled the first 100 packets out of every 1000 and saved to {output_path}")
 
-    # Extracts the conversations from a pcap-file
-    def extract_conversations(self, input_path):
-        print('Reading pcap-file')
-        conversations = []
-        current_conversation = []
-        counter = 0
+    # DEPRECATED Extracts the conversations from a pcap-file
+    #def extract_conversations(self, input_path):
+    #    print('Reading pcap-file')
+    #    conversations = []
+    #    current_conversation = []
+    #    counter = 0
 
-        with PcapReader(input_path) as pcap_reader:
-            for packet in pcap_reader:
-                counter += 1
-                if counter % 10000 == 0:
-                    print(f"{counter} packets processed")
+    #    with PcapReader(input_path) as pcap_reader:
+    #        for packet in pcap_reader:
+    #            counter += 1
+    #            if counter % 10000 == 0:
+    #                print(f"{counter} packets processed")
 
-                if IP in packet:
-                    if TCP in packet:
-                        conversation_key = (packet[IP].src, packet[IP].dst, packet[TCP].sport, packet[TCP].dport)
-                    elif UDP in packet:
-                        conversation_key = (packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport)
-                    else:
-                        continue
+    #            if IP in packet:
+    #                if TCP in packet:
+    #                    conversation_key = (packet[IP].src, packet[IP].dst, packet[TCP].sport, packet[TCP].dport)
+    #                elif UDP in packet:
+    #                    conversation_key = (packet[IP].src, packet[IP].dst, packet[UDP].sport, packet[UDP].dport)
+    #                else:
+    #                    continue
 
-                    if conversation_key not in current_conversation:
-                        current_conversation.append(conversation_key)
-                        conversations.append([])
+    #                if conversation_key not in current_conversation:
+    #                    current_conversation.append(conversation_key)
+    #                    conversations.append([])
 
-                    conversations[current_conversation.index(conversation_key)].append(packet)
+    #                conversations[current_conversation.index(conversation_key)].append(packet)
 
-        self.conversations_list = conversations
-        return conversations
+    #    self.conversations_list = conversations
+    #    return conversations
 
-    # Writes a list of conversations to a pcap-file
-    def create_pcap_from_conversations(self, conversations, output_path):
-        print('Writing packets to pcap-file')
-        packets_to_write = []
+    # DEPRECATED Writes a list of conversations to a pcap-file
+    #def create_pcap_from_conversations(self, conversations, output_path):
+    #    print('Writing packets to pcap-file')
+    #    packets_to_write = []
 
-        for conversation in conversations:
-            packets_to_write.extend(conversation)
+    #    for conversation in conversations:
+    #        packets_to_write.extend(conversation)
 
-        with PcapWriter(output_path) as pcap_writer:
-            pcap_writer.write(packets_to_write)
+    #    with PcapWriter(output_path) as pcap_writer:
+    #        pcap_writer.write(packets_to_write)
 
     # Sample a percentage of conversations (not of packets)
-    def sample_percentage_conversations(self, percentage, input_path, output_path=None):
-        conversation_list = self.extract_conversations(input_path)
-        print(f'Sampling {percentage} percent of conversations')
-        sampled_conversations = random.sample(conversation_list, int(0.01 * percentage * len(conversation_list)))
+    # def sample_percentage_conversations(self, percentage, input_path, output_path=None):
+    #    conversation_list = self.extract_conversations(input_path)
+    # print(f'Sampling {percentage} percent of conversations')
+    #    sampled_conversations = random.sample(conversation_list, int(0.01 * percentage * len(conversation_list)))
 
-        if output_path is not None:
-            self.create_pcap_from_conversations(sampled_conversations, output_path)
+    #    if output_path is not None:
+    #        self.create_pcap_from_conversations(sampled_conversations, output_path)
 
-        self.conversations_list = sampled_conversations
-        return sampled_conversations
+    #    self.conversations_list = sampled_conversations
+    #    return sampled_conversations
 
-    # Trains Kitsune on a list of conversations
-    def train_Kitsune_on_conversations(self, conversation_list):
-        self.K = Kitsune("input_data/empty.pcap", np.Inf, 6, math.floor(len(conversation_list)*0.1), math.floor(len(conversation_list)*0.9))
-        for conversation in conversation_list:
-            self.K.feed_batch(conversation)
+    # DEPRECATED Trains Kitsune on a list of conversations
+    # def train_Kitsune_on_conversations(self, conversation_list):
+    #    self.K = Kitsune("input_data/empty.pcap", np.Inf, 6, math.floor(len(conversation_list)*0.1), math.floor(len(conversation_list)*0.9))
+    #    for conversation in conversation_list:
+    #        self.K.feed_batch(conversation)
 
-    # Runs Kitsune on a list of conversations and returns a list of anomaly-scores per conversation
-    def run_Kitsune_on_conversations(self, conversation_list, threshold):
-        result_list = []
-        malicious = 0
-        for conversation in conversation_list:
-            result = self.K.feed_batch(conversation)
-            # Normalize result if maximum is a positive
-            if max(result) >= 1.0:
-                result = [float(i) / max(result) for i in result]
-            # If one of the results is higher than the threshold, then mark as malicious
-            if max(result) > threshold:
-                malicious = 1
-            # Add a tuple of conversation and malicious/benign
-            result_list.append((conversation, malicious))
-        return result_list
+    # DEPRECATED Runs Kitsune on a list of conversations and returns a list of anomaly-scores per conversation
+    #def run_Kitsune_on_conversations(self, conversation_list, threshold):
+    #    result_list = []
+    #    malicious = 0
+    #    for conversation in conversation_list:
+    #        result = self.K.feed_batch(conversation)
+    #        # Normalize result if maximum is a positive
+    #        if max(result) >= 1.0:
+    #            result = [float(i) / max(result) for i in result]
+    #        # If one of the results is higher than the threshold, then mark as malicious
+    #        if max(result) > threshold:
+    #            malicious = 1
+    #        # Add a tuple of conversation and malicious/benign
+    #        result_list.append((conversation, malicious))
+    #    return result_list
 
     # Loads conversations list from a pickle file
     def conversations_loader(self, newpickle=None):
@@ -493,16 +494,16 @@ class KitPlugin:
         with open(path, 'wb') as f:
             pickle.dump(self.conversations_list, f)
 
-    # Verifies a batch of conversations to be benign or malicious
-    def verify_test_results(self, conv_list, threshold):
-        result_list = []
-        for conv in conv_list:
-            # If one of the results is higher than the threshold, then mark as malicious
-            malicious = 0
-            if max(conv[1]) > threshold:
-                malicious = 1
-            result_list.append((conv[0], malicious))
-        return result_list
+    # DEPRECATED Verifies a batch of conversations to be benign or malicious
+    #def verify_test_results(self, conv_list, threshold):
+    #    result_list = []
+    #    for conv in conv_list:
+    #        # If one of the results is higher than the threshold, then mark as malicious
+    #        malicious = 0
+    #        if max(conv[1]) > threshold:
+    #            malicious = 1
+    #        result_list.append((conv[0], malicious))
+    #    return result_list
 
     def load_pcap_to_features(self, input_path):
         print('Running dummy instance of Kitsune')
@@ -519,7 +520,7 @@ class KitPlugin:
                 returnList.append(row)
             return returnList
 
-    def find_packets_by_conversation(self, tsvpath, outpath, labels):
+    def sample_packets_by_conversation(self, tsvpath, outpath, labels):
         # We open the output writer to write to a new TSV file
         with open(outpath, 'w') as op:
             wr = csv.writer(op)
@@ -541,3 +542,103 @@ class KitPlugin:
                             break
                     pkt_iter += 1
             op.close()
+
+    def map_packets_to_features(self, packet_path, feature_path, sampled_feature_path):
+        # Step 1: Read the packet CSV file and create a set of packet indices
+        subset_indices = set()
+        row_index = 0
+        with open(packet_path, 'r', newline='') as packet_file:
+            csvreader = csv.reader(packet_file)
+            for row in csvreader:
+                if row:
+                    packet_index = int(row[19])  # Assuming index is in the 19th column
+                    subset_indices.add(packet_index)
+                row_index += 1
+        # Step 2: Read the required statistics from the large feature CSV file
+        # and write them to the output CSV file
+        with open(feature_path, 'r', newline='') as feature_file, open(sampled_feature_path, 'w', newline='') as output_file:
+            csvreader = csv.reader(feature_file)
+            csvwriter = csv.writer(output_file)
+
+            for row_num, row in enumerate(csvreader, start=1):
+                packet_index = row_num  # Index is the row number
+                # Check if the packet index is in the list of subset indices
+                if packet_index in subset_indices:
+                    # Write the row to the output CSV file
+                    csvwriter.writerow(row)
+
+    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
+    # This version uses KitNET directly instead of running Kitsune as a whole
+    def hyper_opt_KitNET(self, feature_path, training_cutoff, total_cutoff, runs):
+        def objective(trial):
+            numAE = trial.suggest_int('numAE', 4, 10)
+            learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
+            hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
+
+            kit = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff*0.9), learning_rate, hidden_ratio)
+            # Load the feature list beforehand to save time
+            iter = 0
+            with open(feature_path) as fp:
+                rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+
+                y_pred = []
+                for packet in rd_ft:
+                    if packet:
+                        packet = packet[0].split(',')
+                        packet = [float(element) for element in packet]
+                        packet = np.array(packet)
+                        if iter % 10000 == 0:
+                            print(iter)
+                        if iter < total_cutoff:
+                            if iter <= training_cutoff:
+                                kit.train(packet)
+                            else:
+                                score = kit.execute(packet)
+                                y_pred.append(score)
+                            iter += 1
+                        else:
+                            break
+                fp.close()
+            y_test = np.zeros((len(y_pred), 1))
+            error = sklearn.metrics.mean_squared_error(y_test, y_pred)
+            print('error')
+            print(error)
+            return error
+
+        study = optuna.create_study()
+        study.optimize(objective, n_trials=runs)
+
+        # Create a new workbook and select the active worksheet
+        wb = Workbook()
+        ws = wb.active
+
+        # Write header row
+        header = ["Trial Number", "numAE", "learning_rate", "hidden_ratio"]
+        ws.append(header)
+
+        # Write trial information
+        best_value = float("inf")
+        best_row_idx = None  # Track the index of the best row
+        for idx, trial in enumerate(study.trials, start=2):  # Start from row 2 to leave room for the header
+            trial_params = trial.params
+            trial_row = [trial.number, trial_params["numAE"], trial_params["learning_rate"],
+                         trial_params["hidden_ratio"], trial.value]
+            ws.append(trial_row)
+
+            if trial.value < best_value:
+                best_value = trial.value
+                best_row_idx = idx
+
+        # Set fill color for the best value row
+        green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+        if best_row_idx is not None:
+            for cell in ws[best_row_idx]:
+                cell.fill = green_fill
+
+        # Save the workbook to a file
+        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.now().strftime(
+            '%d-%m-%Y_%H-%M') + ".xlsx"
+        wb.save(excel_file_path)
+
+        print("Results exported to", excel_file_path)
+        return study.best_trial
