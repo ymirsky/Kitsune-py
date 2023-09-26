@@ -25,6 +25,10 @@ class KitPlugin:
         prediction = self.K.feed_batch(input_data)
         return prediction
 
+    def kitnet_model(self, input_data):
+        prediction = self.KitTest.process_batch(input_data)
+        return prediction
+
     # Builds a Kitsune instance. Does not train KitNET yet.
     def __init__(self, input_path=None, packet_limit=None, num_autenc=None, FMgrace=None, ADgrace=None, learning_rate=0.1, hidden_ratio=0.75):
         # This code will be removed when batch running Kitsune has been finalized
@@ -642,3 +646,32 @@ class KitPlugin:
 
         print("Results exported to", excel_file_path)
         return study.best_trial
+
+    # Calculates KitNET's SHAP-values for the specified indexes
+    def shap_values_builder_from_csv(self, path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio):
+        self.KitTest = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff*0.9), learning_rate, hidden_ratio)
+        # Load CSV file since it probably will not be too big
+        with open(path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            features = []
+            for packet in rd_ft:
+                if packet:
+                    packet = packet[0].split(',')
+                    packet = [float(element) for element in packet]
+                    packet = np.array(packet)
+                    features.append(packet)
+            fp.close()
+        print('Done building feature array')
+
+        featuresNP = np.array(features)
+
+        print('Training KitNET')
+        self.KitTest.process_batch(featuresNP[:training_cutoff])
+        print("Building SHAP explainer")
+        self.explainer = shap.Explainer(self.kitnet_model, featuresNP[:training_cutoff])
+        print("Calculating SHAP values")
+        newfeatures = features[training_cutoff:total_cutoff]
+        newfeatures = random.sample(newfeatures, 40)
+        # Get 40 random packets from test set
+        self.shap_values = self.explainer.shap_values(np.array(newfeatures))
+        return self.shap_values

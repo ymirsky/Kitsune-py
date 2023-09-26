@@ -100,7 +100,7 @@ inputs = {
 #features = KitPlugin.feature_builder('input_data/features.csv')
 #KitPlugin.feature_pickle()
 
-KitPlugin = KitPlugin()
+#KitPlugin = KitPlugin()
 #labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
 #iter = 0
 #for label in labels:
@@ -124,4 +124,12 @@ KitPlugin = KitPlugin()
 
 # Total cutoff should be length of the sampled features file, training size is 0.7 times the total size
 # 50 test runs
-KitPlugin.hyper_opt_KitNET("input_data/sampled_features.csv", int(0.7*338105), 338105, 50)
+#KitPlugin.hyper_opt_KitNET("input_data/sampled_features.csv", int(0.7*338105), 338105, 50)
+
+#KitPlugin = KitPlugin()
+#KitPlugin.hyper_opt("input_data/Monday-WorkingHours_10_percent_random.pcap", 100, 1000000)
+
+KitPlugin = KitPlugin()
+shap_values = KitPlugin.shap_values_builder_from_csv('input_data/sampled_features.csv', floor(0.9*395789), 395789, 8, 0.0221042, 0.72812396)
+KitPlugin.shap_values_pickle()
+KitPlugin.shap_stats_excel_export()
