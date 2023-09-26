@@ -229,12 +229,13 @@ class KitPlugin:
         start_column_values = 'N'
 
         # Loop over the dictionary and write capitalized keys and values to cells
-        for idx, (key, value) in enumerate(self.metadata.items()):
-            capitalized_key = key[0].upper() + key[1:]
-            key_cell = f"{start_column_keys}{start_row + idx}"
-            value_cell = f"{start_column_values}{start_row + idx}"
-            sheet[key_cell] = capitalized_key
-            sheet[value_cell] = value
+        if hasattr(self, "metadata"):
+            for idx, (key, value) in enumerate(self.metadata.items()):
+                capitalized_key = key[0].upper() + key[1:]
+                key_cell = f"{start_column_keys}{start_row + idx}"
+                value_cell = f"{start_column_values}{start_row + idx}"
+                sheet[key_cell] = capitalized_key
+                sheet[value_cell] = value
         return sheet
 
     # Runs a series of Kitsune models and calculates statistics for each run.
