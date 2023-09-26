@@ -129,7 +129,7 @@ class KitPlugin:
     # Creates an Excel-file containing summary statistics for each feature
     def shap_stats_excel_export(self, path=None):
         self.workbook = openpyxl.load_workbook('input_data/template_statistics_file.xlsx')
-        self.create_sheet("mirai_60k_4asdf")
+        self.create_sheet("benign_shap")
         excel_file = "summary_statistics_test.xlsx"
         if path != None:
             excel_file = path
@@ -674,4 +674,12 @@ class KitPlugin:
         newfeatures = random.sample(newfeatures, 40)
         # Get 40 random packets from test set
         self.shap_values = self.explainer.shap_values(np.array(newfeatures))
+        self.metadata = {
+            "filename": path,
+            "packet_limit": total_cutoff,
+            "num_autenc": numAE,
+            "FMgrace": math.floor(training_cutoff * 0.1),
+            "ADgrace": math.floor(training_cutoff * 0.9),
+            "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        }
         return self.shap_values
