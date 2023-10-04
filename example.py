@@ -96,19 +96,28 @@ inputs = {
 #NewKitPlugin.kit_trainer_supplied_features(features)
 
 # Open TSV file and extract features
-#KitPlugin = KitPlugin(input_path='input_data/Monday-WorkingHours.pcap.tsv', packet_limit=np.Inf, num_autenc=6, FMgrace=11000000, ADgrace=12000000, learning_rate=0.1, hidden_ratio=0.75)
-#features = KitPlugin.feature_builder('input_data/features.csv')
+#KitPlugin = KitPlugin(input_path='input_data/Wednesday-WorkingHours.pcap', packet_limit=np.Inf, num_autenc=6, FMgrace=11000000, ADgrace=12000000, learning_rate=0.1, hidden_ratio=0.75)
+#features = KitPlugin.feature_builder('input_data/wednesday_features.csv')
 #KitPlugin.feature_pickle()
 
-KitPlugin = KitPlugin()
-#labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
+#KitPlugin = KitPlugin()
+#print('reading labels file')
+#labels = KitPlugin.read_label_file('input_data/tuesday_labels_cleaned.csv')
 #iter = 0
 #for label in labels:
 #    iter += 1
- #If we only want benign/malicious labels, we add an if-statement here
+#    if iter % 10000 == 0:
+#        print(iter)
 #    label.append(str(labels.index(label)-1))
- #We sample 10 percent of labels
-#labels = sample(labels, int(0.05*len(labels)))
+#We sample all malicious labels
+#print(len(labels))
+#train_labels = [lst for lst in labels if len(lst) >= 5 and lst[4] == 'BENIGN']
+#test_labels = [lst for lst in labels if len(lst) >= 5 and lst[4] != 'BENIGN']
+
+#print('training set: '+str(len(train_labels)))
+#print('training set: '+str(len(test_labels)))
+# Sample 10 percent of the training set
+#train_labels = sample(train_labels, int(0.1*len(train_labels)))
 
 #with open('input_data/Monday-WorkingHours.pcap.tsv') as csvfile:
 #    packetreader = csv.reader(csvfile)
@@ -134,7 +143,7 @@ KitPlugin.hyper_opt_KitNET("input_data/sampled_features.csv", floor(0.7*395789),
 
 #KitPlugin = KitPlugin()
 #shap_values = KitPlugin.shap_values_builder_from_csv('input_data/sampled_features.csv', floor(0.9*395789), 395789, 7, 0.132533, 0.509961)
-#KitPlugin.shap_values_loader()
-#KitPlugin.shap_stats_excel_export("output_data/shap_report.xlsx")
-#results = KitPlugin.run_kitsune_from_feature_csv('input_data/sampled_features.csv', floor(0.3*395789), floor(0.4*395789), 7, 0.132533, 0.50996)
-#print(results)
+
+#shap_values = KitPlugin.shap_values_builder_separate_train_test_csv('input_data/sampled_features_monday.csv', 'input_data/sampled_tuesday_features_malicious.csv', 395789, 891634, 6, 0.1312, 0.5050)
+#KitPlugin.shap_values_pickle()
+#KitPlugin.shap_stats_excel_export("output_data/shap_report_malicious.xlsx")

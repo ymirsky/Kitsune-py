@@ -130,7 +130,7 @@ class KitPlugin:
     # Creates an Excel-file containing summary statistics for each feature
     def shap_stats_excel_export(self, path=None):
         self.workbook = openpyxl.load_workbook('input_data/template_statistics_file.xlsx')
-        self.create_sheet("benign_shap")
+        self.create_sheet("malicious_shap")
         excel_file = "summary_statistics_test.xlsx"
         if path != None:
             excel_file = path
@@ -557,8 +557,8 @@ class KitPlugin:
             csvreader = csv.reader(packet_file)
             for row in csvreader:
                 if row:
-                    print(row)
-                    packet_index = int(row[19])  # Assuming index is in the 19th column
+                    #packet_index = int(row[19])  # Assuming index is in the 20th column
+                    packet_index = int(row[22])  # Assuming index is in the 23rd column
                     subset_indices.add(packet_index)
                 row_index += 1
         # Step 2: Read the required statistics from the large feature CSV file
@@ -662,8 +662,61 @@ class KitPlugin:
         return study.best_trial
 
     # Calculates KitNET's SHAP-values for the specified indexes
-    def shap_values_builder_from_csv(self, path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio):
+    def shap_values_builder_separate_train_test_csv(self, train_path, test_path, training_cutoff, test_cutoff, numAE, learning_rate, hidden_ratio):
         self.KitTest = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff*0.9), learning_rate, hidden_ratio)
+        # Load CSV file since it probably will not be too big
+        with open(train_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            train_features = []
+            for packet in rd_ft:
+                if packet:
+                    packet = packet[0].split(',')
+                    packet = [float(element) for element in packet]
+                    packet = np.array(packet)
+                    train_features.append(packet)
+            fp.close()
+        print('Done building train feature array')
+
+        # Load CSV file since it probably will not be too big
+        with open(test_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            test_features = []
+            iter = 0
+            for packet in rd_ft:
+                if packet:
+                    if iter >= test_cutoff:
+                        break
+                    packet = packet[0].split(',')
+                    packet = [float(element) for element in packet]
+                    packet = np.array(packet)
+                    test_features.append(packet)
+                    iter += 1
+            fp.close()
+        print('Done building test feature array')
+
+        trainfeaturesNP = np.array(train_features)
+
+        print('Training KitNET')
+        self.KitTest.process_batch(trainfeaturesNP[:training_cutoff])
+        print("Building SHAP explainer")
+        self.explainer = shap.Explainer(self.kitnet_model, trainfeaturesNP[:training_cutoff])
+        print("Calculating SHAP values")
+        newfeatures = random.sample(test_features, 40)
+        # Get 40 random packets from test set
+        self.shap_values = self.explainer.shap_values(np.array(newfeatures))
+        self.metadata = {
+            "filename": train_path,
+            "packet_limit": training_cutoff,
+            "num_autenc": numAE,
+            "FMgrace": math.floor(training_cutoff * 0.1),
+            "ADgrace": math.floor(training_cutoff * 0.9),
+            "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        }
+        return self.shap_values
+
+    def shap_values_builder_from_csv(self, path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio):
+        self.KitTest = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff * 0.9),
+                              learning_rate, hidden_ratio)
         # Load CSV file since it probably will not be too big
         with open(path) as fp:
             rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
