@@ -2,6 +2,7 @@ import csv
 import math
 
 import openpyxl
+from optuna_dashboard import run_server
 
 from Kitsune import Kitsune
 from KitNET.KitNET import KitNET
@@ -556,11 +557,13 @@ class KitPlugin:
             csvreader = csv.reader(packet_file)
             for row in csvreader:
                 if row:
+                    print(row)
                     packet_index = int(row[19])  # Assuming index is in the 19th column
                     subset_indices.add(packet_index)
                 row_index += 1
         # Step 2: Read the required statistics from the large feature CSV file
         # and write them to the output CSV file
+        quit()
         with open(feature_path, 'r', newline='') as feature_file, open(sampled_feature_path, 'w', newline='') as output_file:
             csvreader = csv.reader(feature_file)
             csvwriter = csv.writer(output_file)
@@ -579,8 +582,9 @@ class KitPlugin:
             numAE = trial.suggest_int('numAE', 4, 10)
             learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
             hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
+            FMgrace = trial.suggest_float('FMgrace', 0.5, 0.8)
 
-            kit = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff*0.9), learning_rate, hidden_ratio)
+            kit = KitNET(100, numAE, FMgrace, math.floor(training_cutoff*0.9), learning_rate, hidden_ratio)
             # Load the feature list beforehand to save time
             iter = 0
             with open(feature_path) as fp:
@@ -610,8 +614,17 @@ class KitPlugin:
             print(error)
             return error
 
-        study = optuna.create_study()
-        study.optimize(objective, n_trials=runs)
+        # Dashboard logic
+        storage = optuna.storages.InMemoryStorage()
+        search_space = {
+            'numAE': [5, 10, 15, 25, 50, 75, 150],
+            'learning_rate': [0.001, 0.005, 0.01, 0.05, 0.1, 0.13, 0.2],
+            'hidden_ratio': [0.25, 0.5, 0.75],
+            'FMgrace': [0.05*training_cutoff, 0.10*training_cutoff, 0.15*training_cutoff, 0.20*training_cutoff]
+        }
+        study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space), storage=storage)
+        study.optimize(objective, n_trials=7*7*3*4)
+        run_server(storage)
 
         # Create a new workbook and select the active worksheet
         wb = Workbook()
@@ -684,3 +697,73 @@ class KitPlugin:
             "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         }
         return self.shap_values
+
+    def run_kitsune_from_feature_csv(self, feature_path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio):
+        kit = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff * 0.9), learning_rate,
+                     hidden_ratio)
+        # Load the feature list beforehand to save time
+        iter = 0
+        with open(feature_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+
+            y_pred = []
+            for packet in rd_ft:
+                if packet:
+                    packet = packet[0].split(',')
+                    packet = [float(element) for element in packet]
+                    packet = np.array(packet)
+                    if iter % 10000 == 0:
+                        print(iter)
+                    if iter < total_cutoff:
+                        if iter <= training_cutoff:
+                            kit.train(packet)
+                        else:
+                            score = kit.execute(packet)
+                            y_pred.append(score)
+                        iter += 1
+                    else:
+                        break
+            fp.close()
+            print("Writing anomaly detector to file")
+            path = 'pickles/anomDetector.pkl'
+            with open(path, 'wb') as f:
+                pickle.dump(kit, f)
+        return y_pred
+
+    def run_kitsune_from_feature_pickle(self, feature_path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio, pickle_path=None):
+        kit = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff * 0.9), learning_rate, hidden_ratio)
+
+        #path = 'pickles/anomDetector.pkl'
+        #if pickle_path != None:
+        #    path = pickle_path
+        #with open(path, 'rb') as f:
+        #    kit = pickle.load(f)
+
+        # Load the feature list beforehand to save time
+        iter = 0
+        with open(feature_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+
+            y_pred = []
+            for packet in rd_ft:
+                if packet:
+                    packet = packet[0].split(',')
+                    packet = [float(element) for element in packet]
+                    packet = np.array(packet)
+                    if iter % 10000 == 0:
+                        print(iter)
+                    if iter < total_cutoff:
+                        if iter <= training_cutoff:
+                            kit.train(packet)
+                        else:
+                            score = kit.execute(packet)
+                            y_pred.append(score)
+                        iter += 1
+                    else:
+                        break
+            fp.close()
+            print("Writing anomaly detector to file")
+            path = 'pickles/anomDetector.pkl'
+            with open(path, 'wb') as f:
+                pickle.dump(kit, f)
+        return y_pred

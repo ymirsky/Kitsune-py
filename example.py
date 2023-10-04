@@ -100,14 +100,15 @@ inputs = {
 #features = KitPlugin.feature_builder('input_data/features.csv')
 #KitPlugin.feature_pickle()
 
-#KitPlugin = KitPlugin()
+KitPlugin = KitPlugin()
 #labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
 #iter = 0
 #for label in labels:
 #    iter += 1
+ #If we only want benign/malicious labels, we add an if-statement here
 #    label.append(str(labels.index(label)-1))
-# We sample 10 percent of labels
-#labels = sample(labels, int(0.1*len(labels)))
+ #We sample 10 percent of labels
+#labels = sample(labels, int(0.05*len(labels)))
 
 #with open('input_data/Monday-WorkingHours.pcap.tsv') as csvfile:
 #    packetreader = csv.reader(csvfile)
@@ -118,18 +119,22 @@ inputs = {
 #        if counter % 10000 == 0:
 #            print(counter)
 
-#KitPlugin.sample_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_nohash.pcap.tsv', labels)
+#KitPlugin.sample_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_nohash_5.pcap.tsv', labels)
 # Map samples to features of an existing featureList
-#KitPlugin.map_packets_to_features('input_data/Monday-WorkingHours_nohash.pcap.tsv', 'input_data/features.csv', 'input_data/sampled_features.csv')
+#KitPlugin.map_packets_to_features('input_data/Monday-WorkingHours_nohash_5.pcap.tsv', 'input_data/features.csv', 'input_data/sampled_features_5.csv')
+
+
 
 # Total cutoff should be length of the sampled features file, training size is 0.7 times the total size
 # 50 test runs
-#KitPlugin.hyper_opt_KitNET("input_data/sampled_features.csv", int(0.7*338105), 338105, 50)
+KitPlugin.hyper_opt_KitNET("input_data/sampled_features.csv", floor(0.7*395789), 395789, 50)
 
 #KitPlugin = KitPlugin()
 #KitPlugin.hyper_opt("input_data/Monday-WorkingHours_10_percent_random.pcap", 100, 1000000)
 
-KitPlugin = KitPlugin()
-shap_values = KitPlugin.shap_values_builder_from_csv('input_data/sampled_features.csv', floor(0.9*395789), 395789, 8, 0.0221042, 0.72812396)
-KitPlugin.shap_values_pickle()
-KitPlugin.shap_stats_excel_export()
+#KitPlugin = KitPlugin()
+#shap_values = KitPlugin.shap_values_builder_from_csv('input_data/sampled_features.csv', floor(0.9*395789), 395789, 7, 0.132533, 0.509961)
+#KitPlugin.shap_values_loader()
+#KitPlugin.shap_stats_excel_export("output_data/shap_report.xlsx")
+#results = KitPlugin.run_kitsune_from_feature_csv('input_data/sampled_features.csv', floor(0.3*395789), floor(0.4*395789), 7, 0.132533, 0.50996)
+#print(results)
