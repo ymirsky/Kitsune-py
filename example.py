@@ -96,18 +96,28 @@ inputs = {
 #NewKitPlugin.kit_trainer_supplied_features(features)
 
 # Open TSV file and extract features
-#KitPlugin = KitPlugin(input_path='input_data/Monday-WorkingHours.pcap.tsv', packet_limit=np.Inf, num_autenc=6, FMgrace=11000000, ADgrace=12000000, learning_rate=0.1, hidden_ratio=0.75)
-#features = KitPlugin.feature_builder('input_data/features.csv')
+#KitPlugin = KitPlugin(input_path='input_data/Wednesday-WorkingHours.pcap', packet_limit=np.Inf, num_autenc=6, FMgrace=11000000, ADgrace=12000000, learning_rate=0.1, hidden_ratio=0.75)
+#features = KitPlugin.feature_builder('input_data/wednesday_features.csv')
 #KitPlugin.feature_pickle()
 
 #KitPlugin = KitPlugin()
-#labels = KitPlugin.read_label_file('input_data/monday_labels_cleaned.csv')
+#print('reading labels file')
+#labels = KitPlugin.read_label_file('input_data/tuesday_labels_cleaned.csv')
 #iter = 0
 #for label in labels:
 #    iter += 1
+#    if iter % 10000 == 0:
+#        print(iter)
 #    label.append(str(labels.index(label)-1))
-# We sample 10 percent of labels
-#labels = sample(labels, int(0.1*len(labels)))
+#We sample all malicious labels
+#print(len(labels))
+#train_labels = [lst for lst in labels if len(lst) >= 5 and lst[4] == 'BENIGN']
+#test_labels = [lst for lst in labels if len(lst) >= 5 and lst[4] != 'BENIGN']
+
+#print('training set: '+str(len(train_labels)))
+#print('training set: '+str(len(test_labels)))
+# Sample 10 percent of the training set
+#train_labels = sample(train_labels, int(0.1*len(train_labels)))
 
 #with open('input_data/Monday-WorkingHours.pcap.tsv') as csvfile:
 #    packetreader = csv.reader(csvfile)
@@ -118,18 +128,27 @@ inputs = {
 #        if counter % 10000 == 0:
 #            print(counter)
 
-#KitPlugin.sample_packets_by_conversation('input_data/Monday-WorkingHours.pcap.tsv', 'input_data/Monday-WorkingHours_nohash.pcap.tsv', labels)
+#print('sampling training set')
+#KitPlugin.sample_packets_by_conversation('input_data/Tuesday-WorkingHours.pcap.tsv', 'input_data/Tuesday-WorkingHours_benign.pcap.tsv', train_labels)
+#print('sampling testing set')
+#KitPlugin.sample_packets_by_conversation('input_data/Tuesday-WorkingHours.pcap.tsv', 'input_data/Tuesday-WorkingHours_malicious.pcap.tsv', test_labels)
+
 # Map samples to features of an existing featureList
-#KitPlugin.map_packets_to_features('input_data/Monday-WorkingHours_nohash.pcap.tsv', 'input_data/features.csv', 'input_data/sampled_features.csv')
+KitPlugin = KitPlugin()
+#print('mapping training set')
+#KitPlugin.map_packets_to_features('input_data/Tuesday-WorkingHours_benign.pcap.tsv', 'input_data/tuesday_features.csv', 'input_data/sampled_tuesday_features_benign.csv')
+#print('mapping testing set')
+#KitPlugin.map_packets_to_features('input_data/Tuesday-WorkingHours_malicious.pcap.tsv', 'input_data/tuesday_features.csv', 'input_data/sampled_tuesday_features_malicious.csv')
 
 # Total cutoff should be length of the sampled features file, training size is 0.7 times the total size
 # 50 test runs
-#KitPlugin.hyper_opt_KitNET("input_data/sampled_features.csv", int(0.7*338105), 338105, 50)
+#KitPlugin.hyper_opt_KitNET("input_data/sampled_tuesday_features_benign.csv", int(0.7*338105), 338105, 50)
 
 #KitPlugin = KitPlugin()
 #KitPlugin.hyper_opt("input_data/Monday-WorkingHours_10_percent_random.pcap", 100, 1000000)
 
-KitPlugin = KitPlugin()
-shap_values = KitPlugin.shap_values_builder_from_csv('input_data/sampled_features.csv', floor(0.9*395789), 395789, 8, 0.0221042, 0.72812396)
-KitPlugin.shap_values_pickle()
-KitPlugin.shap_stats_excel_export()
+#KitPlugin = KitPlugin()
+#shap_values = KitPlugin.shap_values_builder_from_csv('input_data/sampled_features.csv', floor(0.9*395789), 395789, 7, 0.132533, 0.509961)
+#shap_values = KitPlugin.shap_values_builder_separate_train_test_csv('input_data/sampled_features_monday.csv', 'input_data/sampled_tuesday_features_malicious.csv', 395789, 891634, 6, 0.1312, 0.5050)
+#KitPlugin.shap_values_pickle()
+#KitPlugin.shap_stats_excel_export("output_data/shap_report_malicious.xlsx")
