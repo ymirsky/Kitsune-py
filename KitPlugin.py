@@ -1,11 +1,15 @@
 import csv
 import math
+import os
 
 import openpyxl
+import pandas as pd
+from matplotlib import pyplot as plt
 from optuna_dashboard import run_server
 
 from Kitsune import Kitsune
 from KitNET.KitNET import KitNET
+import netStat as ns
 import shap
 import numpy as np
 import pickle
@@ -47,6 +51,9 @@ class KitPlugin:
                 "timestamp" : datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             }
         self.testFeatures = None
+        maxHost = 100000000000
+        maxSess = 100000000000
+        self.nstat = ns.netStat(np.nan, maxHost, maxSess)
 
     # Calls Kitsune's get_feature_list function to build the list of features
     def feature_builder(self, csv=False):
@@ -89,6 +96,7 @@ class KitPlugin:
     # Runs KitNET, using specified index range of this class' feature list
     def kit_runner(self, min_index, max_index, normalize=False):
         print("Running")
+        print(len(self.features_list[min_index:max_index]))
         return self.K.feed_batch(self.features_list[min_index:max_index])
 
     # Calculates KitNET's SHAP-values for the specified indexes
@@ -170,12 +178,112 @@ class KitPlugin:
             }
         return result_dict
 
+    def create_histogram(self, day, featuremean, featuremedian, sheet_title):
+        # Extract keys and values from dictionaries
+        keys = list(featuremean.keys())
+        values_mean = list(featuremean.values())
+        values_median = list(featuremedian.values())
+
+        # Set up the figure and axis
+        fig, ax = plt.subplots()
+
+        # Set bar width
+        bar_width = 0.35
+
+        # Set the bar positions
+        index = np.arange(len(keys))
+
+        # Plot bars for featuremean
+        bar1 = ax.bar(index, values_mean, bar_width, color='blue', label='Feature Mean')
+
+        # Plot bars for featuremedian
+        bar2 = ax.bar(index + bar_width, values_median, bar_width, color='orange', label='Feature Median')
+
+        # Set labels and title
+        ax.set_xlabel('Feature')
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        ax.set_ylabel('SHAP-value')
+        ax.set_title(f"{day}: {sheet_title}")
+        ax.set_xticks(index + bar_width / 2)
+        ax.set_xticklabels(keys)
+
+        # Add legend
+        ax.legend()
+        plt.savefig(f'output_data/attack_types/{day}_{sheet_title}')
+        # Show the plot
+        plt.show()
+
     # Creates an Excel sheet with relevant statistics
-    def create_sheet(self, sheet_title):
+    def create_sheet(self, day, sheet_title):
         sheet = self.workbook.copy_worksheet(self.workbook.active)
         sheet.title = sheet_title
         headers = ['Mean', 'Median', 'Standard Deviation', 'Variance', 'Minimum', 'Maximum', 'Sum', 'Metadata']
         header_row = headers
+        lambdameans = {
+            '5':[],
+            '3':[],
+            '1':[],
+            '0.1':[],
+            '0.01':[]
+        }
+        lambdamean = {
+            '5': None,
+            '3': None,
+            '1': None,
+            '0.1': None,
+            '0.01': None
+        }
+        lambdamedians = {
+            '5':[],
+            '3':[],
+            '1':[],
+            '0.1':[],
+            '0.01':[]
+        }
+        lambdamedian = {
+            '5': None,
+            '3': None,
+            '1': None,
+            '0.1': None,
+            '0.01': None
+        }
+        featuremeans = {
+            'weight':[],
+            'mean':[],
+            'standard deviation':[],
+            'radius':[],
+            'magnitude':[],
+            'covariance':[],
+            'pearson correlation coefficient':[]
+        }
+        featuremean = {
+            'weight': None,
+            'mean': None,
+            'standard deviation': None,
+            'radius': None,
+            'magnitude': None,
+            'covariance': None,
+            'pearson correlation coefficient': None
+        }
+        featuremedians = {
+            'weight':[],
+            'mean':[],
+            'standard deviation':[],
+            'radius':[],
+            'magnitude':[],
+            'covariance':[],
+            'pearson correlation coefficient':[]
+        }
+        featuremedian = {
+            'weight': None,
+            'mean': None,
+            'standard deviation': None,
+            'radius': None,
+            'magnitude': None,
+            'covariance': None,
+            'pearson correlation coefficient': None
+        }
         for col, value in enumerate(header_row):
             cell = sheet.cell(row=1, column=6 + col)
             cell.value = value
@@ -187,12 +295,91 @@ class KitPlugin:
             minimum = np.min(num_list)
             maximum = np.max(num_list)
             total_sum = np.sum(num_list)
+            if idx+1 <= 20:
+                lambdameans['5'].append(mean)
+                lambdamedians['5'].append(median)
+            if idx+1 > 20 and idx+1 <= 40:
+                lambdameans['3'].append(mean)
+                lambdamedians['3'].append(median)
+            if idx+1 > 40 and idx+1 <= 60:
+                lambdameans['1'].append(mean)
+                lambdamedians['1'].append(median)
+            if idx+1 > 60 and idx+1 <= 80:
+                lambdameans['0.1'].append(mean)
+                lambdamedians['0.1'].append(median)
+            if idx+1 > 80 and idx+1 <= 100:
+                lambdameans['0.01'].append(mean)
+                lambdamedians['0.01'].append(median)
 
+            if idx+1 in [1, 4, 11, 14, 21, 24, 31, 34, 41, 44, 51, 54, 61, 64, 71, 74, 81, 84, 91, 94]:
+                featuremeans['weight'].append(mean)
+                featuremedians['weight'].append(median)
+            if idx+1 in [2, 5, 12, 15, 22, 25, 32, 35, 42, 45, 52, 55, 62, 65, 72, 75, 82, 85, 92, 95]:
+                featuremeans['mean'].append(mean)
+                featuremedians['mean'].append(median)
+            if idx + 1 in [3, 6, 13, 16, 23, 26, 33, 36, 43, 46, 53, 56, 63, 66, 73, 76, 83, 86, 93, 96]:
+                featuremeans['standard deviation'].append(mean)
+                featuremedians['standard deviation'].append(median)
+            if idx + 1 in [7, 17, 27, 37, 47, 57, 67, 77, 87, 97]:
+                featuremeans['radius'].append(mean)
+                featuremedians['radius'].append(median)
+            if idx + 1 in [8, 18, 28, 38, 48, 58, 68, 78, 88, 98]:
+                featuremeans['magnitude'].append(mean)
+                featuremedians['magnitude'].append(median)
+            if idx + 1 in [9, 19, 29, 39, 49, 59, 69, 79, 89, 99]:
+                featuremeans['covariance'].append(mean)
+                featuremedians['covariance'].append(median)
+            if idx + 1 in [10, 20, 30, 40, 50, 60, 70, 80, 99, 100]:
+                featuremeans['pearson correlation coefficient'].append(mean)
+                featuremedians['pearson correlation coefficient'].append(median)
             row_data = [mean, median, std_dev, variance, minimum, maximum, total_sum]
 
             for col, value in enumerate(row_data):
                 cell = sheet.cell(row=idx + 2, column=6 + col)
                 cell.value = value
+
+        row = idx + 2
+        row += 1
+        cell = sheet.cell(row=row, column=1)
+        cell.value = "Grouped by lambda"
+        cell = sheet.cell(row=row, column=2)
+        cell.value = "mean"
+        cell = sheet.cell(row=row, column=3)
+        cell.value = "median"
+        row += 1
+
+        for key in lambdameans:
+            cell = sheet.cell(row=row, column = 1)
+            cell.value = key
+            cell = sheet.cell(row=row, column = 2)
+            cell.value = np.mean(np.array(lambdameans[key]))
+            lambdamean[key] = np.mean(np.array(lambdameans[key]))
+            cell = sheet.cell(row=row, column=3)
+            cell.value = np.median(np.array(lambdamedians[key]))
+            lambdamedian[key] = np.mean(np.array(lambdamedians[key]))
+            row += 1
+        row += 1
+
+        cell = sheet.cell(row=row, column=1)
+        cell.value = "Grouped by feature"
+        cell = sheet.cell(row=row, column=2)
+        cell.value = "mean"
+        cell = sheet.cell(row=row, column=3)
+        cell.value = "median"
+        row += 1
+        for key in featuremeans:
+            cell = sheet.cell(row=row, column=1)
+            cell.value = key
+            cell = sheet.cell(row=row, column=2)
+            cell.value = np.mean(np.array(featuremeans[key]))
+            featuremean[key] = np.mean(np.array(featuremeans[key]))
+            cell = sheet.cell(row=row, column=3)
+            cell.value = np.median(np.array(featuremedians[key]))
+            featuremedian[key] = np.median(np.array(featuremedians[key]))
+            row += 1
+        self.create_histogram(day, featuremean, featuremedian, sheet_title+" grouped by feature name")
+        self.create_histogram(day, lambdamean, lambdamedian, sheet_title + " grouped by lambda value")
+        row += 1
 
         color_indices = self.get_high_low_indices()
         stat_columns = {
@@ -535,9 +722,13 @@ class KitPlugin:
                 rd = csv.reader(fd, delimiter="\t", quotechar='"')
                 pkt_iter = -1
                 for row in rd:
-                    print(pkt_iter)
+                    if pkt_iter == -1:
+                        pkt_iter += 1
+                        continue
                     # Labels is the list of conversations, that has previously been sampled to 10 percent of conversations
                     for label in labels:
+                        if label[0] == 'Src':
+                            continue
                         if (row[4] == label[0] and row[6] == label[1] and row[5] == label[2] and row[7] == label[3]) or (row[4] == label[2] and row[6] == label[3] and row[5] == label[0] and row[7] == label[1]):
                             label_iter = label[5]
                             label_val = label[4]
@@ -563,7 +754,6 @@ class KitPlugin:
                 row_index += 1
         # Step 2: Read the required statistics from the large feature CSV file
         # and write them to the output CSV file
-        quit()
         with open(feature_path, 'r', newline='') as feature_file, open(sampled_feature_path, 'w', newline='') as output_file:
             csvreader = csv.reader(feature_file)
             csvwriter = csv.writer(output_file)
@@ -577,19 +767,22 @@ class KitPlugin:
 
     # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
     # This version uses KitNET directly instead of running Kitsune as a whole
-    def hyper_opt_KitNET(self, feature_path, training_cutoff, total_cutoff, runs):
+    def hyper_opt_KitNET(self, feature_path, training_cutoff, total_cutoff):
         def objective(trial):
-            numAE = trial.suggest_int('numAE', 4, 10)
-            learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
-            hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
-            FMgrace = trial.suggest_float('FMgrace', 0.5, 0.8)
+            numAE = trial.suggest_int('numAE', 0, 200)
+            learning_rate = trial.suggest_float('learning_rate', 0, 0.5)
+            hidden_ratio = trial.suggest_float('hidden_ratio', 0, 1)
+            FMgrace = trial.suggest_int('FMgrace', 0, 500000)
 
-            kit = KitNET(100, numAE, FMgrace, math.floor(training_cutoff*0.9), learning_rate, hidden_ratio)
+            kit = KitNET(100, max_autoencoder_size=numAE, FM_grace_period=FMgrace,
+                         AD_grace_period=math.floor(training_cutoff * 0.9), learning_rate=learning_rate,
+                         hidden_ratio=hidden_ratio)
             # Load the feature list beforehand to save time
             iter = 0
             with open(feature_path) as fp:
                 rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
 
+                train_err = []
                 y_pred = []
                 for packet in rd_ft:
                     if packet:
@@ -600,7 +793,7 @@ class KitPlugin:
                             print(iter)
                         if iter < total_cutoff:
                             if iter <= training_cutoff:
-                                kit.train(packet)
+                                train_err.append(kit.train(packet))
                             else:
                                 score = kit.execute(packet)
                                 y_pred.append(score)
@@ -609,22 +802,116 @@ class KitPlugin:
                             break
                 fp.close()
             y_test = np.zeros((len(y_pred), 1))
+            trial.set_user_attr("training_error", np.mean(train_err))
             error = sklearn.metrics.mean_squared_error(y_test, y_pred)
+            mean_err = np.mean(y_pred)
+            trial.set_user_attr("mean_error", mean_err)
             print('error')
             print(error)
             return error
 
         # Dashboard logic
-        storage = optuna.storages.InMemoryStorage()
         search_space = {
             'numAE': [5, 10, 15, 25, 50, 75, 150],
             'learning_rate': [0.001, 0.005, 0.01, 0.05, 0.1, 0.13, 0.2],
             'hidden_ratio': [0.25, 0.5, 0.75],
-            'FMgrace': [0.05*training_cutoff, 0.10*training_cutoff, 0.15*training_cutoff, 0.20*training_cutoff]
+            'FMgrace': [math.floor(0.05 * training_cutoff), math.floor(0.10 * training_cutoff),
+                        math.floor(0.20 * training_cutoff)]
         }
-        study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space), storage=storage)
-        study.optimize(objective, n_trials=7*7*3*4)
-        run_server(storage)
+        name = "hyperopt" + str(total_cutoff)
+        study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space),
+                                    storage="sqlite:///hyperopt.db", study_name=name)
+        study.optimize(objective, n_trials=7 * 7 * 3 * 4)
+
+        # Create a new workbook and select the active worksheet
+        wb = Workbook()
+        ws = wb.active
+
+        # Write header row
+        header = ["Trial Number", "numAE", "learning_rate", "hidden_ratio"]
+        ws.append(header)
+
+        # Write trial information
+        best_value = float("inf")
+        best_row_idx = None  # Track the index of the best row
+        for idx, trial in enumerate(study.trials, start=2):  # Start from row 2 to leave room for the header
+            trial_params = trial.params
+            trial_row = [trial.number, trial_params["numAE"], trial_params["learning_rate"],
+                         trial_params["hidden_ratio"], trial.value]
+            ws.append(trial_row)
+
+            if trial.value < best_value:
+                best_value = trial.value
+                best_row_idx = idx
+
+        # Set fill color for the best value row
+        green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+        if best_row_idx is not None:
+            for cell in ws[best_row_idx]:
+                cell.fill = green_fill
+
+        # Save the workbook to a file
+        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.now().strftime(
+            '%d-%m-%Y_%H-%M') + ".xlsx"
+        wb.save(excel_file_path)
+
+        print("Results exported to", excel_file_path)
+        return study.best_trial
+
+    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
+    # This version uses KitNET directly instead of running Kitsune as a whole
+    def hyper_opt_KitNET_mean(self, feature_path, training_cutoff, total_cutoff):
+        def objective(trial):
+            numAE = trial.suggest_int('numAE', 0, 200)
+            learning_rate = trial.suggest_float('learning_rate', 0, 0.5)
+            hidden_ratio = trial.suggest_float('hidden_ratio', 0, 1)
+            FMgrace = trial.suggest_int('FMgrace', 0, 500000)
+
+            kit = KitNET(100, max_autoencoder_size=numAE, FM_grace_period=FMgrace,
+                         AD_grace_period=math.floor(training_cutoff * 0.9), learning_rate=learning_rate,
+                         hidden_ratio=hidden_ratio)
+            # Load the feature list beforehand to save time
+            iter = 0
+            with open(feature_path) as fp:
+                rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+
+                train_err = []
+                y_pred = []
+                for packet in rd_ft:
+                    if packet:
+                        packet = packet[0].split(',')
+                        packet = [float(element) for element in packet]
+                        packet = np.array(packet)
+                        if iter % 10000 == 0:
+                            print(iter)
+                        if iter < total_cutoff:
+                            if iter <= training_cutoff:
+                                train_err.append(kit.train(packet))
+                            else:
+                                score = kit.execute(packet)
+                                y_pred.append(score)
+                            iter += 1
+                        else:
+                            break
+                fp.close()
+            trial.set_user_attr("training_error", np.mean(train_err))
+            error = np.mean(y_pred)
+            print('error')
+            print(error)
+            return error
+
+        # Dashboard logic
+        search_space = {
+            'numAE': [5, 10, 15, 25, 50, 75, 150],
+            'learning_rate': [0.001, 0.005, 0.01, 0.05, 0.1, 0.13, 0.2],
+            'hidden_ratio': [0.25, 0.5, 0.75],
+            'FMgrace': [math.floor(0.05 * training_cutoff), math.floor(0.10 * training_cutoff),
+                        math.floor(0.20 * training_cutoff)]
+        }
+        name = "hyperopt_mean_" + str(total_cutoff)
+        study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space),
+                                    storage="sqlite:///hyperopt.db", study_name=name)
+        study.optimize(objective, n_trials=7 * 7 * 3 * 4)
 
         # Create a new workbook and select the active worksheet
         wb = Workbook()
@@ -783,6 +1070,148 @@ class KitPlugin:
                 pickle.dump(kit, f)
         return y_pred
 
+    def run_trained_kitsune_from_feature_csv(self, test_path, test_start, test_limit):
+        #kit = KitNET(100, 10, math.floor(12000000 * 0.05), math.floor(12000000 * 0.9), 0.30, 0.25)
+        # kit = KitNET(100, 50, math.floor(10000000 * 0.05), 10000000, 0.0005, 0.25)
+        #
+        #
+        #
+        # counter = 0
+        # with open('input_data/features.csv') as fp:
+        #     rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+        #
+        #     for packet in rd_ft:
+        #        if packet:
+        #            packet = packet[0].split(',')
+        #            packet = [float(element) for element in packet]
+        #            packet = np.array(packet)
+        #            if counter % 10000 == 0:
+        #                print(counter)
+        #            if counter < math.floor(700000):
+        #                kit.train(packet)
+        #                counter += 1
+        #            else:
+        #                break
+        #     fp.close()
+        # path = 'pickles/anomDetectorFullDataset2.pkl'
+        # with open(path, 'wb') as f:
+        #     pickle.dump(kit, f)
+        # print('testing')
+        # quit()
+        # # Load the feature list beforehand to save time
+        # counter = 0
+        # print(test_start)
+        # print(test_limit)
+        # with open(test_path) as fp:
+        #     rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+        #     resultList = []
+        #     for packet in rd_ft:
+        #         if counter % 10000 == 0:
+        #             print(counter)
+        #         if packet and counter > test_start:
+        #             print('testing1')
+        #             print(counter)
+        #             packet = packet[0].split(',')
+        #             packet = [float(element) for element in packet]
+        #             packet = np.array(packet)
+        #             if counter < test_limit:
+        #                 print('test2')
+        #                 resultList.append(kit.execute(packet))
+        #             else:
+        #                 break
+        #         counter += 1
+        #     fp.close()
+        #     print("Writing anomaly detector to file")
+        #     path = 'pickles/anomDetector.pkl'
+        #     with open(path, 'wb') as f:
+        #         pickle.dump(kit, f)
+        with open("pickles/anomDetectorFullDataset.pkl", 'rb') as f:
+            kit = pickle.load(f)
+
+        counter = 0
+        results = []
+        with open(test_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+
+            for packet in rd_ft:
+                if packet:
+                    packet = packet[0].split(',')
+                    packet = [float(element) for element in packet]
+                    packet = np.array(packet)
+                    if counter % 10000 == 0:
+                        print('running: ')
+                        print(counter)
+                    if counter < test_limit:
+                        results.append(kit.execute(packet))
+                        counter += 1
+                    else:
+                        break
+            fp.close()
+        return results
+
+    def run_trained_kitsune_from_tsv(self, test_path, test_limit):
+        path = 'pickles/anomDetectorFullDataset.pkl'
+        with open(path, 'rb') as f:
+            kit = pickle.load(f)
+
+        # Load the feature list beforehand to save time
+        #iter = 0
+        #with open(feature_path) as fp:
+            #rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+
+            #for packet in rd_ft:
+            #    if packet:
+            #        packet = packet[0].split(',')
+            #        packet = [float(element) for element in packet]
+            #        packet = np.array(packet)
+            #        if iter % 10000 == 0:
+            #            print(iter)
+            #        if iter < training_cutoff:
+            #            kit.train(packet)
+            #            iter += 1
+            #        else:
+            #            break
+            #fp.close()
+            #print("Writing anomaly detector to file")
+            #path = 'pickles/anomDetector.pkl'
+            #with open(path, 'wb') as f:
+            #    pickle.dump(kit, f)
+            #with open(path, 'rb') as f:
+            #    newKit = pickle.load(f)
+
+        counter = 0
+        results = []
+        with open(test_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            for packet in rd_ft:
+                if packet and counter > 0:
+                    print(counter)
+                    features = self.get_features_for_packet(packet)
+                    results.append(kit.execute(features))
+                counter += 1
+            fp.close()
+        return results
+
+    def map_results_to_conversation(self, results, pcap_path):
+        counter = 0
+        conv_dict = {}
+        with open(pcap_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            for packet in rd_ft:
+                if counter < len(results):
+                    if packet:
+                        packet = packet[0].split(',')
+                        result = results[counter]
+                        conv_number = packet[23]
+                        if conv_number not in conv_dict:
+                            conv_dict[conv_number] = []
+                        conv_dict[conv_number].append(result)
+                        counter += 1
+                else:
+                    break
+            fp.close()
+        return conv_dict
+
     def run_kitsune_from_feature_pickle(self, feature_path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio, pickle_path=None):
         kit = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff * 0.9), learning_rate, hidden_ratio)
 
@@ -820,3 +1249,152 @@ class KitPlugin:
             with open(path, 'wb') as f:
                 pickle.dump(kit, f)
         return y_pred
+
+    def get_features_for_packet(self, packet):
+        row = packet
+        #row = row[0].strip('][').split(',')
+        IPtype = np.nan
+        timestamp = row[0]
+        framelen = row[1]
+        srcIP = ''
+        dstIP = ''
+        tcpFlags = row[19]
+        payload = ''
+        # payload = int(row[20])+int(row[21])
+        if row[4] != '':  # IPv4
+            srcIP = row[4]
+            dstIP = row[5]
+            IPtype = 0
+        elif row[17] != '':  # ipv6
+            srcIP = row[17]
+            dstIP = row[18]
+            IPtype = 1
+        srcproto = row[6] + row[
+            8]  # UDP or TCP port: the concatenation of the two port strings will will results in an OR "[tcp|udp]"
+        dstproto = row[7] + row[9]  # UDP or TCP port
+        srcMAC = row[2]
+        dstMAC = row[3]
+        if srcproto == '':  # it's a L2/L1 level protocol
+            if row[12] != '':  # is ARP
+                srcproto = 'arp'
+                dstproto = 'arp'
+                srcIP = row[14]  # src IP (ARP)
+                dstIP = row[16]  # dst IP (ARP)
+                IPtype = 0
+            elif row[10] != '':  # is ICMP
+                srcproto = 'icmp'
+                dstproto = 'icmp'
+                IPtype = 0
+            elif srcIP + srcproto + dstIP + dstproto == '':  # some other protocol
+                srcIP = row[2]  # src MAC
+                dstIP = row[3]  # dst MAC
+                ### Extract Features
+        try:
+            return self.nstat.updateGetStats(IPtype, srcMAC, dstMAC, srcIP, srcproto, dstIP, dstproto,
+                                             int(framelen),
+                                             float(timestamp), tcpFlags, payload)
+        except Exception as e:
+            print(e)
+            return []
+
+    def most_significant_packets_sampler(self, day):
+        root_folder = "."
+        attack_types_folder = os.path.join(root_folder, "input_data/attack_types")
+        pickles_folder = os.path.join(root_folder, "pickles/output_pickles_packet_basis")
+
+        for attack_type in os.listdir(attack_types_folder):
+            if attack_type == f"{day}_features.csv" or attack_type == f"{day}_BENIGN.csv" or not (attack_type.startswith(day) and attack_type.endswith(".csv")):
+                continue
+            attack_type = attack_type.replace(".csv", "")
+            attack_type = attack_type.replace(f"{day}_features_", "")
+
+            # Construct the file names for features and pickle file
+            feature_file_name = f"{day}_features_{attack_type}.csv"
+            pickle_file_name = f"{day.title()}_{attack_type}_results.pkl"
+            feature_file_path = os.path.join(attack_types_folder, feature_file_name)
+            pickle_file_path = os.path.join(pickles_folder, pickle_file_name)
+
+            # Check if the pickle file exists
+            if not os.path.exists(pickle_file_path):
+                continue
+
+            # Load the pickle file containing reconstruction errors
+            with open(pickle_file_path, 'rb') as pickle_file:
+                reconstruction_errors = pickle.load(pickle_file)
+
+            # Load the corresponding feature CSV file
+            features_df = pd.read_csv(feature_file_path, header=None)
+            # Sort the errors and get the indices of the 40 highest
+            sorted_indices = list(filter(lambda x: x < len(features_df), np.argsort(reconstruction_errors)[-40:]))
+
+            # Extract the significant features
+            significant_features = features_df.iloc[sorted_indices]
+            # Define the output file name
+            output_file_name = f"{day}_features_{attack_type}_most_significant.csv"
+            output_file_path = os.path.join(attack_types_folder, output_file_name)
+            # Save the significant features to a new CSV file
+            significant_features.to_csv(output_file_path, index=False, header=False)
+
+    def shap_values_builder_from_features(self, test_feature_path, benign_feature_path):
+        path = 'pickles/anomDetectorFullDataset.pkl'
+        with open(path, 'rb') as f:
+            kit = pickle.load(f)
+
+        def callKit(featureList):
+            results = []
+            for features in featureList:
+                results.append(kit.execute(features))
+            return np.array(results)
+
+        # Load CSV file since it probably will not be too big
+        with open(test_feature_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            test_features = []
+            for feature in rd_ft:
+                feature = feature[0].split(',')
+                feature = [float(element) for element in feature]
+                feature = np.array(feature)
+                test_features.append(feature)
+            fp.close()
+        print('Done building training feature array')
+
+        # Load CSV file since it probably will not be too big
+        with open(benign_feature_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            benign_features = []
+            for feature in rd_ft:
+                feature = feature[0].split(',')
+                feature = [float(element) for element in feature]
+                feature = np.array(feature)
+                benign_features.append(feature)
+            fp.close()
+
+        print("Building SHAP explainer")
+        explainer = shap.KernelExplainer(callKit, np.array(benign_features[:40]))
+        print("Calculating SHAP values")
+        self.shap_values = explainer.shap_values(np.array(test_features[:5]))
+        return self.shap_values
+
+    # Calculates SHAP-values for each available attack type in a day of the week; writes results to Excel and pickles results
+    def shap_documenter(self, day):
+        root_folder = "."
+        attack_types_folder = os.path.join(root_folder, "input_data/attack_types")
+        self.workbook = openpyxl.load_workbook(f'input_data/template_statistics_file.xlsx')
+
+        for attack_type in os.listdir(attack_types_folder):
+            if not (attack_type.startswith(day) and attack_type.endswith("most_significant.csv")):
+                continue
+            attack_type = attack_type.replace(".csv", "")
+            attack_type = attack_type.replace(f"{day}_features_", "")
+            # Loop over the different Kitsune configs we are going to make
+            shap_values = self.shap_values_builder_from_features(
+                f"input_data/attack_types/thursday_features_{attack_type}.csv",
+                "input_data/sampled_features_100.csv")
+
+            path = f'pickles/output_pickles/{day.title()}_{attack_type}shap_results.pkl'
+            with open(path, 'wb') as f:
+                pickle.dump(shap_values, f)
+            # Could do this with a Regular Expression but I'm a sane person
+            self.create_sheet(day, attack_type.replace("most_significant", "").replace("-", "").replace("_", "").replace(" ", ""))
+        excel_file = f"output_data/shap_{day}_{datetime.now().strftime('%d-%m-%Y_%H-%M')}.xlsx"
+        self.workbook.save(excel_file)
