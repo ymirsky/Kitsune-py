@@ -535,7 +535,7 @@ class KitPlugin:
                 rd = csv.reader(fd, delimiter="\t", quotechar='"')
                 pkt_iter = -1
                 for row in rd:
-                    print(pkt_iter)
+                    print('tuesday malicious', pkt_iter)
                     # Labels is the list of conversations, that has previously been sampled to 10 percent of conversations
                     for label in labels:
                         if (row[4] == label[0] and row[6] == label[1] and row[5] == label[2] and row[7] == label[3]) or (row[4] == label[2] and row[6] == label[3] and row[5] == label[0] and row[7] == label[1]):
@@ -550,7 +550,7 @@ class KitPlugin:
             op.close()
 
     def map_packets_to_features(self, packet_path, feature_path, sampled_feature_path):
-        # Step 1: Read the packet CSV file and create a set of packet indices
+        # Step 1: Read the packet TSV file and create a set of packet indices
         subset_indices = set()
         row_index = 0
         with open(packet_path, 'r', newline='') as packet_file:
@@ -563,10 +563,10 @@ class KitPlugin:
                 row_index += 1
         # Step 2: Read the required statistics from the large feature CSV file
         # and write them to the output CSV file
-        quit()
         with open(feature_path, 'r', newline='') as feature_file, open(sampled_feature_path, 'w', newline='') as output_file:
             csvreader = csv.reader(feature_file)
             csvwriter = csv.writer(output_file)
+            print('thursday')
 
             for row_num, row in enumerate(csvreader, start=1):
                 packet_index = row_num  # Index is the row number
@@ -577,19 +577,199 @@ class KitPlugin:
 
     # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
     # This version uses KitNET directly instead of running Kitsune as a whole
-    def hyper_opt_KitNET(self, feature_path, training_cutoff, total_cutoff, runs):
-        def objective(trial):
-            numAE = trial.suggest_int('numAE', 4, 10)
-            learning_rate = trial.suggest_float('learning_rate', 0.01, 0.5)
-            hidden_ratio = trial.suggest_float('hidden_ratio', 0.5, 0.8)
-            FMgrace = trial.suggest_float('FMgrace', 0.5, 0.8)
+    def hyper_opt_KitNET(self, feature_path, training_cutoff):
+        # def objective(trial):
+        #     numAE = trial.suggest_int('numAE', 0, 200)
+        #     learning_rate = trial.suggest_float('learning_rate', 0, 0.5)
+        #     hidden_ratio = trial.suggest_float('hidden_ratio', 0, 1)
+        #     FMgrace = trial.suggest_int('FMgrace', 0, 500000)
+        #
+        #     kit = KitNET(100, max_autoencoder_size=numAE, FM_grace_period=FMgrace, AD_grace_period=math.floor(training_cutoff*0.9), learning_rate=learning_rate, hidden_ratio=hidden_ratio)
+        #     # Load the feature list beforehand to save time
+        #     iter = 0
+        #     with open(feature_path) as fp:
+        #         rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+        #
+        #         train_err = []
+        #         y_pred = []
+        #         for packet in rd_ft:
+        #             if packet:
+        #                 packet = packet[0].split(',')
+        #                 packet = [float(element) for element in packet]
+        #                 packet = np.array(packet)
+        #                 if iter % 10000 == 0:
+        #                     print(iter)
+        #                 if iter < total_cutoff:
+        #                     if iter <= training_cutoff:
+        #                         train_err.append(kit.train(packet))
+        #                     else:
+        #                         score = kit.execute(packet)
+        #                         y_pred.append(score)
+        #                     iter += 1
+        #                 else:
+        #                     break
+        #         fp.close()
+        #
+        #     trial.set_user_attr("training_error", np.mean(train_err))
+        #     trial.set_user_attr("testing_error", np.mean(y_pred))
+        #
+        #     median_value = np.median(train_err)
+        #     median_absolute_deviation = np.median([abs(number - median_value) for number in train_err])
+        #     trial.set_user_attr("mad", median_absolute_deviation)
+        #
+        #     threshold = median_value + 2 * median_absolute_deviation
+        #     trial.set_user_attr("threshold", threshold)
+        #
+        #     anomaly_count = 0
+        #     for err in y_pred:
+        #         if err > threshold:
+        #             anomaly_count += 1
+        #
+        #     trial.set_user_attr("anomaly_count", anomaly_count)
+        #     trial.set_user_attr("train_packets", training_cutoff)
+        #     trial.set_user_attr("test_packets", len(y_pred))
+        #
+        #     FPR = anomaly_count / len(y_pred)
+        #     return FPR
 
-            kit = KitNET(100, numAE, FMgrace, math.floor(training_cutoff*0.9), learning_rate, hidden_ratio)
+        def objective(trial):
+            numAE = trial.suggest_int('numAE', 0, 200)
+            learning_rate = trial.suggest_float('learning_rate', 0, 0.5)
+            hidden_ratio = trial.suggest_float('hidden_ratio', 0, 1)
+            FMgrace = trial.suggest_int('FMgrace', 0, 500000)
+
+            kit = KitNET(100, max_autoencoder_size=numAE, FM_grace_period=FMgrace, AD_grace_period=math.floor(training_cutoff*0.9), learning_rate=learning_rate, hidden_ratio=hidden_ratio)
+            # Load the feature list beforehand to save time
+            counter = 0
+
+            with open(feature_path) as fp:
+                rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+                train_err = []
+                for packet in rd_ft:
+                    if packet:
+                        packet = packet[0].split(',')
+                        packet = [float(element) for element in packet]
+                        packet = np.array(packet)
+                        if counter % 10000 == 0:
+                            print("training: "+str(counter))
+                        if counter <= training_cutoff:
+                            train_err.append(kit.train(packet))
+                        else:
+                            break
+                        counter += 1
+                fp.close()
+
+            y_pred = []
+            path = 'pickles/validateFeatureList.pkl'
+            counterValidate = 0
+            with open(path, 'rb') as f:
+                validateList = pickle.load(f)
+            for packet in validateList:
+                score = kit.execute(packet)
+                if counterValidate % 100000:
+                    print("testing: "+str(counterValidate))
+                y_pred.append(score)
+
+            trial.set_user_attr("training_error", np.mean(train_err))
+            trial.set_user_attr("train_median", np.median(train_err))
+            trial.set_user_attr("train_25_percentile", np.percentile(train_err, 25))
+            trial.set_user_attr("train_75_percentile", np.percentile(train_err, 75))
+            trial.set_user_attr("train_max", np.max(train_err))
+            trial.set_user_attr("testing_error", np.mean(train_err))
+            trial.set_user_attr("test_median", np.median(train_err))
+            trial.set_user_attr("test_25_percentile", np.percentile(train_err, 25))
+            trial.set_user_attr("test_75_percentile", np.percentile(train_err, 75))
+            trial.set_user_attr("test_max", np.max(train_err))
+
+            median_value = np.median(train_err)
+            median_absolute_deviation = np.median([abs(number - median_value) for number in train_err])
+            trial.set_user_attr("mad", median_absolute_deviation)
+
+            threshold = median_value + 2 * median_absolute_deviation
+            trial.set_user_attr("threshold", threshold)
+
+            trial.set_user_attr("test_minus_train_error", np.mean(y_pred)-np.mean(train_err))
+
+            anomaly_count = 0
+            for err in y_pred:
+                if err > threshold:
+                    anomaly_count += 1
+
+            trial.set_user_attr("anomaly_count", anomaly_count)
+            trial.set_user_attr("train_packets", training_cutoff)
+            trial.set_user_attr("test_packets", len(y_pred))
+
+            FPR = anomaly_count / len(y_pred)
+            return FPR
+
+        # Dashboard logic
+        search_space = {
+            'numAE': [5, 10, 15, 25, 50, 75, 150],
+            'learning_rate': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.05, 0.1],
+            'hidden_ratio': [0.25, 0.5, 0.75],
+            'FMgrace': [math.floor(0.05*training_cutoff), math.floor(0.10*training_cutoff), math.floor(0.20 * training_cutoff)]
+        }
+        search_space = {
+            'numAE': [50],
+            'learning_rate': [0.0001],
+            'hidden_ratio': [0.25],
+            'FMgrace': [math.floor(0.05*training_cutoff)]
+        }
+        name = "mad2_hyperopt" + str(training_cutoff) + "learnlowerhigheragainappend"
+        study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space), storage="sqlite:///hyperopt.db", study_name=name)
+        study.optimize(objective, n_trials=27)
+
+        # Create a new workbook and select the active worksheet
+        wb = Workbook()
+        ws = wb.active
+
+        # Write header row
+        header = ["Trial Number", "numAE", "learning_rate", "hidden_ratio"]
+        ws.append(header)
+
+        # Write trial information
+        best_value = float("inf")
+        best_row_idx = None  # Track the index of the best row
+        for idx, trial in enumerate(study.trials, start=2):  # Start from row 2 to leave room for the header
+            trial_params = trial.params
+            trial_row = [trial.number, trial_params["numAE"], trial_params["learning_rate"],
+                         trial_params["hidden_ratio"], trial.value]
+            ws.append(trial_row)
+
+            if trial.value < best_value:
+                best_value = trial.value
+                best_row_idx = idx
+
+        # Set fill color for the best value row
+        green_fill = PatternFill(start_color="00FF00", end_color="00FF00", fill_type="solid")
+        if best_row_idx is not None:
+            for cell in ws[best_row_idx]:
+                cell.fill = green_fill
+
+        # Save the workbook to a file
+        excel_file_path = "output_data/hyperparameter_optimization_results_" + datetime.now().strftime(
+            '%d-%m-%Y_%H-%M') + ".xlsx"
+        wb.save(excel_file_path)
+
+        print("Results exported to", excel_file_path)
+        return study.best_trial
+
+    # Runs a hyperparameter optimization on the supplied dataset, constrained by number of runs and packet limit
+    # This version uses KitNET directly instead of running Kitsune as a whole
+    def hyper_opt_KitNET_mean(self, feature_path, training_cutoff, total_cutoff):
+        def objective(trial):
+            numAE = trial.suggest_int('numAE', 0, 200)
+            learning_rate = trial.suggest_float('learning_rate', 0, 0.5)
+            hidden_ratio = trial.suggest_float('hidden_ratio', 0, 1)
+            FMgrace = trial.suggest_int('FMgrace', 0, 500000)
+
+            kit = KitNET(100, max_autoencoder_size=numAE, FM_grace_period=FMgrace, AD_grace_period=math.floor(training_cutoff*0.9), learning_rate=learning_rate, hidden_ratio=hidden_ratio)
             # Load the feature list beforehand to save time
             iter = 0
             with open(feature_path) as fp:
                 rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
 
+                train_err = []
                 y_pred = []
                 for packet in rd_ft:
                     if packet:
@@ -600,7 +780,7 @@ class KitPlugin:
                             print(iter)
                         if iter < total_cutoff:
                             if iter <= training_cutoff:
-                                kit.train(packet)
+                                train_err.append(kit.train(packet))
                             else:
                                 score = kit.execute(packet)
                                 y_pred.append(score)
@@ -608,23 +788,22 @@ class KitPlugin:
                         else:
                             break
                 fp.close()
-            y_test = np.zeros((len(y_pred), 1))
-            error = sklearn.metrics.mean_squared_error(y_test, y_pred)
+            trial.set_user_attr("training_error", np.mean(train_err))
+            error = np.mean(y_pred)
             print('error')
             print(error)
             return error
 
         # Dashboard logic
-        storage = optuna.storages.InMemoryStorage()
         search_space = {
             'numAE': [5, 10, 15, 25, 50, 75, 150],
             'learning_rate': [0.001, 0.005, 0.01, 0.05, 0.1, 0.13, 0.2],
             'hidden_ratio': [0.25, 0.5, 0.75],
-            'FMgrace': [0.05*training_cutoff, 0.10*training_cutoff, 0.15*training_cutoff, 0.20*training_cutoff]
+            'FMgrace': [math.floor(0.05*training_cutoff), math.floor(0.10*training_cutoff), math.floor(0.20 * training_cutoff)]
         }
-        study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space), storage=storage)
+        name = "hyperopt_mean_" + str(total_cutoff)
+        study = optuna.create_study(sampler=optuna.samplers.GridSampler(search_space), storage="sqlite:///hyperopt.db", study_name=name)
         study.optimize(objective, n_trials=7*7*3*4)
-        run_server(storage)
 
         # Create a new workbook and select the active worksheet
         wb = Workbook()
@@ -738,7 +917,7 @@ class KitPlugin:
         self.explainer = shap.Explainer(self.kitnet_model, featuresNP[:training_cutoff])
         print("Calculating SHAP values")
         newfeatures = features[training_cutoff:total_cutoff]
-        newfeatures = random.sample(newfeatures, 40)
+        newfeatures = random.sample(newfeatures, 100)
         # Get 40 random packets from test set
         self.shap_values = self.explainer.shap_values(np.array(newfeatures))
         self.metadata = {
@@ -752,33 +931,33 @@ class KitPlugin:
         return self.shap_values
 
     def run_kitsune_from_feature_csv(self, feature_path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio):
-        kit = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff * 0.9), learning_rate,
+        kit = KitNET(100, numAE, math.floor(training_cutoff * 0.05), training_cutoff * 0.9, learning_rate,
                      hidden_ratio)
         # Load the feature list beforehand to save time
-        iter = 0
+        y_pred = []
+        counter = 0
         with open(feature_path) as fp:
             rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
 
-            y_pred = []
             for packet in rd_ft:
                 if packet:
                     packet = packet[0].split(',')
                     packet = [float(element) for element in packet]
                     packet = np.array(packet)
-                    if iter % 10000 == 0:
-                        print(iter)
-                    if iter < total_cutoff:
-                        if iter <= training_cutoff:
+                    if counter % 10000 == 0:
+                        print(counter)
+                    if counter < total_cutoff:
+                        if counter <= training_cutoff:
                             kit.train(packet)
                         else:
                             score = kit.execute(packet)
                             y_pred.append(score)
-                        iter += 1
+                        counter += 1
                     else:
                         break
             fp.close()
             print("Writing anomaly detector to file")
-            path = 'pickles/anomDetector.pkl'
+            path = 'pickles/anomDetectorFullDataset.pkl'
             with open(path, 'wb') as f:
                 pickle.dump(kit, f)
         return y_pred
