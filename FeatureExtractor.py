@@ -106,7 +106,7 @@ class FE:
             self.limit = len(self.scapyin)
             print("Loaded " + str(len(self.scapyin)) + " Packets.")
 
-    def get_next_vector(self):
+    def get_next_vector(self, single=False):
         if self.curPacketIndx == self.limit:
             if self.parse_type == 'tsv':
                 self.tsvinf.close()
@@ -121,7 +121,7 @@ class FE:
             srcIP = ''
             dstIP = ''
             tcpFlags = ''
-            #tcpFlags = row[19]
+            tcpFlags = row[19]
             payload = ''
             #payload = int(row[20])+int(row[21])
             if row[4] != '':  # IPv4
@@ -197,7 +197,8 @@ class FE:
             return []
 
         self.curPacketIndx = self.curPacketIndx + 1
-
+        if not single:
+            tcpFlags = False
 
         ### Extract Features
         try:
@@ -211,7 +212,7 @@ class FE:
 
     def pcap2tsv_with_tshark(self):
         print('Parsing with tshark...')
-        fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e udp.srcport -e udp.dstport -e icmp.type -e icmp.code -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 -e arp.dst.hw_mac -e arp.dst.proto_ipv4 -e ipv6.src -e ipv6.dst -e tcp.flags -e tcp.len -e udp.length"
+        fields = "-e frame.time_epoch -e frame.len -e eth.src -e eth.dst -e ip.src -e ip.dst -e tcp.srcport -e tcp.dstport -e udp.srcport -e udp.dstport -e icmp.type -e icmp.code -e arp.opcode -e arp.src.hw_mac -e arp.src.proto_ipv4 -e arp.dst.hw_mac -e arp.dst.proto_ipv4 -e ipv6.src -e ipv6.dst -e tcp.flags -e tcp.len -e udp.length -e http.response.code"
         cmd =  '"' + self._tshark + '" -r '+ self.path +' -T fields '+ fields +' -E header=y -E occurrence=f > '+self.path+".tsv"
         subprocess.call(cmd,shell=True)
         print("tshark parsing complete. File saved as: "+self.path +".tsv")
@@ -219,7 +220,7 @@ class FE:
     def get_num_features(self):
         return len(self.nstat.getNetStatHeaders())
     
-    def get_all_vectors(self, csv_path=False):
+    def get_all_vectors(self, csv_path=False, single=False):
         vectorList = []
         if csv_path:
             with open(csv_path, mode='w', newline='') as csv_file:
@@ -227,7 +228,7 @@ class FE:
                 while True:
                     if self.curPacketIndx % 100000 == 0:
                         print(self.curPacketIndx)
-                    vector = self.get_next_vector()
+                    vector = self.get_next_vector(single)
                     if len(vector) == 0 or self.curPacketIndx > self.limit:
                         self.curPacketIndx = 0
                         return csv_path

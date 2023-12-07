@@ -5,6 +5,7 @@ import os
 import openpyxl
 import pandas as pd
 from matplotlib import pyplot as plt
+from openpyxl.chart import BarChart, Reference
 from optuna_dashboard import run_server
 
 from Kitsune import Kitsune
@@ -56,10 +57,10 @@ class KitPlugin:
         self.nstat = ns.netStat(np.nan, maxHost, maxSess)
 
     # Calls Kitsune's get_feature_list function to build the list of features
-    def feature_builder(self, csv=False):
+    def feature_builder(self, csv=False, single=False):
         print("Building features")
         # Dummy-running Kitsune to get a list of features
-        self.features_list = self.K.get_feature_list(csv)
+        self.features_list = self.K.get_feature_list(csv, single)
         return self.features_list
 
     # Loads Kitsune's feature list from a pickle file
@@ -214,6 +215,60 @@ class KitPlugin:
         # Show the plot
         plt.show()
 
+    def create_histogram_to_sheet_lambda(self, day, featuremean, featuremedian, sheet_title, worksheet, col):
+        # Extract keys and values from dictionaries
+        keys = list(featuremean.keys())
+        values_mean = list(featuremean.values())
+        values_median = list(featuremedian.values())
+
+        # Create a bar chart
+        chart = BarChart()
+        chart.title = f"{day}: {sheet_title}"
+        chart.x_axis.title = 'Feature'
+        chart.y_axis.title = 'SHAP-value'
+
+        data_ref = Reference(worksheet, min_col=2, min_row=103, max_col=3, max_row=103 + len(keys))
+        categories_ref = Reference(worksheet, min_col=1, min_row=103, max_row=103 + len(keys))
+        chart.add_data(data_ref, titles_from_data=True)
+        chart.set_categories(categories_ref)
+
+        # # Set custom bar titles for the first and second bars (mean and median)
+        # chart.series[0].title = "Mean"
+        # chart.series[1].title = "Median"
+
+        # Calculate the row number for placing the chart
+        chart_row = worksheet.max_row + 2  # Placing chart after the data with a buffer of one row
+
+        # Add the chart to the worksheet
+        worksheet.add_chart(chart, f"{col}{chart_row}")
+
+        return worksheet
+
+    def create_histogram_to_sheet_feature(self, day, featuremean, featuremedian, sheet_title, worksheet, col):
+        # Extract keys and values from dictionaries
+        keys = list(featuremean.keys())
+        values_mean = list(featuremean.values())
+        values_median = list(featuremedian.values())
+
+        # Create a bar chart
+        chart = BarChart()
+        chart.title = f"{day}: {sheet_title}"
+        chart.x_axis.title = 'Feature'
+        chart.y_axis.title = 'SHAP-value'
+
+        data_ref = Reference(worksheet, min_col=2, min_row=110, max_col=3, max_row=110+len(keys) + 1)
+        categories_ref = Reference(worksheet, min_col=1, min_row=110, max_row=110+len(keys) + 1)
+        chart.add_data(data_ref, titles_from_data=True)
+        chart.set_categories(categories_ref)
+
+        # Calculate the row number for placing the chart
+        chart_row = worksheet.max_row + 2  # Placing chart after the data with a buffer of one row
+
+        # Add the chart to the worksheet
+        worksheet.add_chart(chart, f"{col}{chart_row}")
+
+        return worksheet
+
     # Creates an Excel sheet with relevant statistics
     def create_sheet(self, day, sheet_title):
         sheet = self.workbook.copy_worksheet(self.workbook.active)
@@ -356,7 +411,8 @@ class KitPlugin:
             lambdamean[key] = np.mean(np.array(lambdameans[key]))
             cell = sheet.cell(row=row, column=3)
             cell.value = np.median(np.array(lambdamedians[key]))
-            lambdamedian[key] = np.mean(np.array(lambdamedians[key]))
+            print(f"key: {key}, value: {np.mean(np.array(lambdamedians[key]))}")
+            lambdamedian[key] = np.median(np.array(lambdamedians[key]))
             row += 1
         row += 1
 
@@ -378,7 +434,9 @@ class KitPlugin:
             featuremedian[key] = np.median(np.array(featuremedians[key]))
             row += 1
         self.create_histogram(day, featuremean, featuremedian, sheet_title+" grouped by feature name")
+        self.create_histogram_to_sheet_feature(day, featuremean, featuremedian, sheet_title + " grouped by feature name", sheet, "A")
         self.create_histogram(day, lambdamean, lambdamedian, sheet_title + " grouped by lambda value")
+        self.create_histogram_to_sheet_lambda(day, lambdamean, lambdamedian, sheet_title + " grouped by lambda value", sheet, "F")
         row += 1
 
         color_indices = self.get_high_low_indices()
@@ -759,7 +817,6 @@ class KitPlugin:
         with open(feature_path, 'r', newline='') as feature_file, open(sampled_feature_path, 'w', newline='') as output_file:
             csvreader = csv.reader(feature_file)
             csvwriter = csv.writer(output_file)
-            print('thursday')
 
             for row_num, row in enumerate(csvreader, start=1):
                 packet_index = row_num  # Index is the row number
@@ -1244,6 +1301,26 @@ class KitPlugin:
             fp.close()
         return conv_dict
 
+    def map_results_to_conversation_tuple(self, results, pcap_path):
+        counter = 0
+        conv_dict = {}
+        with open(pcap_path) as fp:
+            rd_ft = csv.reader(fp, delimiter="\t", quotechar='"')
+            for packet in rd_ft:
+                if counter < len(results):
+                    if packet:
+                        packet = packet[0].split(',')
+                        result = results[counter]
+                        conv_number = packet[23]
+                        if conv_number not in conv_dict:
+                            conv_dict[conv_number] = []
+                        conv_dict[conv_number].append({counter: result})
+                        counter += 1
+                else:
+                    break
+            fp.close()
+        return conv_dict
+
     def run_kitsune_from_feature_pickle(self, feature_path, training_cutoff, total_cutoff, numAE, learning_rate, hidden_ratio, pickle_path=None):
         kit = KitNET(100, numAE, math.floor(training_cutoff * 0.1), math.floor(training_cutoff * 0.9), learning_rate, hidden_ratio)
 
@@ -1329,7 +1406,7 @@ class KitPlugin:
             print(e)
             return []
 
-    def most_significant_packets_sampler(self, day):
+    def most_significant_packets_sampler(self, day, threshold):
         root_folder = "."
         attack_types_folder = os.path.join(root_folder, "input_data/attack_types")
         pickles_folder = os.path.join(root_folder, "pickles/output_pickles_packet_basis")
@@ -1349,7 +1426,6 @@ class KitPlugin:
             # Check if the pickle file exists
             if not os.path.exists(pickle_file_path):
                 continue
-
             # Load the pickle file containing reconstruction errors
             with open(pickle_file_path, 'rb') as pickle_file:
                 reconstruction_errors = pickle.load(pickle_file)
@@ -1357,15 +1433,47 @@ class KitPlugin:
             # Load the corresponding feature CSV file
             features_df = pd.read_csv(feature_file_path, header=None)
             # Sort the errors and get the indices of the 40 highest
-            sorted_indices = list(filter(lambda x: x < len(features_df), np.argsort(reconstruction_errors)[-40:]))
+            #sorted_indices = list(filter(lambda x: x < len(features_df), np.argsort(reconstruction_errors)[-40:]))
+            conv_scores = self.map_results_to_conversation_tuple(reconstruction_errors, f"input_data/attack_types/{day}_{attack_type}.pcap.tsv")
+            max_packets = []
+            for conv in conv_scores:
+                max_dict = max(conv_scores[conv], key=lambda x: list(x.values())[0])
+                max_packets.append(max_dict)
 
+            true_positive = []
+            false_negative = []
+
+            for item in max_packets:
+                value = list(item.values())[0]  # Extracting the value from the dictionary
+                if value > threshold:
+                    true_positive.append(item)
+                else:
+                    false_negative.append(item)
+
+
+            sorted_keys_tp = [list(d.keys())[0] for d in true_positive]
+            sorted_keys_fn = [list(d.keys())[0] for d in false_negative]
             # Extract the significant features
-            significant_features = features_df.iloc[sorted_indices]
-            # Define the output file name
-            output_file_name = f"{day}_features_{attack_type}_most_significant.csv"
-            output_file_path = os.path.join(attack_types_folder, output_file_name)
-            # Save the significant features to a new CSV file
-            significant_features.to_csv(output_file_path, index=False, header=False)
+            significant_features_tp = features_df.iloc[sorted_keys_tp]
+            if len(significant_features_tp) > 0:
+                if len(significant_features_tp) > 40:
+                    significant_features_tp = significant_features_tp.sample(n=40, replace=False)
+                # Define the output file name
+                print(f'writing {attack_type} to file')
+                output_file_name = f"{day}_features_{attack_type}_tp_most_significant.csv"
+                output_file_path = os.path.join(attack_types_folder, output_file_name)
+                # Save the significant features to a new CSV file
+                significant_features_tp.to_csv(output_file_path, index=False, header=False)
+
+            significant_features_fn = features_df.iloc[sorted_keys_fn]
+            if len(significant_features_fn) > 0:
+                if len(significant_features_fn) > 40:
+                    significant_features_fn = significant_features_fn.sample(n=40, replace=False)
+                # Define the output file name
+                output_file_name = f"{day}_features_{attack_type}_fn_most_significant.csv"
+                output_file_path = os.path.join(attack_types_folder, output_file_name)
+                # Save the significant features to a new CSV file
+                significant_features_fn.to_csv(output_file_path, index=False, header=False)
 
     def shap_values_builder_from_features(self, test_feature_path, benign_feature_path):
         path = 'pickles/anomDetectorFullDataset.pkl'
@@ -1404,7 +1512,7 @@ class KitPlugin:
         print("Building SHAP explainer")
         explainer = shap.KernelExplainer(callKit, np.array(benign_features[:40]))
         print("Calculating SHAP values")
-        self.shap_values = explainer.shap_values(np.array(test_features[:5]))
+        self.shap_values = explainer.shap_values(np.array(test_features[:40]))
         return self.shap_values
 
     # Calculates SHAP-values for each available attack type in a day of the week; writes results to Excel and pickles results
@@ -1412,21 +1520,25 @@ class KitPlugin:
         root_folder = "."
         attack_types_folder = os.path.join(root_folder, "input_data/attack_types")
         self.workbook = openpyxl.load_workbook(f'input_data/template_statistics_file.xlsx')
-
+        count = 0
         for attack_type in os.listdir(attack_types_folder):
             if not (attack_type.startswith(day) and attack_type.endswith("most_significant.csv")):
                 continue
+            if not 'XSS' in attack_type:
+                continue
+            print('bingo')
             attack_type = attack_type.replace(".csv", "")
             attack_type = attack_type.replace(f"{day}_features_", "")
             # Loop over the different Kitsune configs we are going to make
             shap_values = self.shap_values_builder_from_features(
-                f"input_data/attack_types/thursday_features_{attack_type}.csv",
-                "input_data/sampled_features_100.csv")
+                f"input_data/attack_types/{day}_features_{attack_type}.csv",
+                "input_data/attack_types/monday_features_sample_medium_validate.csv")
 
             path = f'pickles/output_pickles/{day.title()}_{attack_type}shap_results.pkl'
             with open(path, 'wb') as f:
                 pickle.dump(shap_values, f)
-            # Could do this with a Regular Expression but I'm a sane person
+            # Could do this with a Regular Expression, but I'm a sane person
             self.create_sheet(day, attack_type.replace("most_significant", "").replace("-", "").replace("_", "").replace(" ", ""))
+            count += 1
         excel_file = f"output_data/shap_{day}_{datetime.now().strftime('%d-%m-%Y_%H-%M')}.xlsx"
         self.workbook.save(excel_file)

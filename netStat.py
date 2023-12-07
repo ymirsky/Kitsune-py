@@ -70,12 +70,20 @@ class netStat:
 
         return src_subnet, dst_subnet
 
-    def updateGetStats(self, IPtype, srcMAC,dstMAC, srcIP, srcProtocol, dstIP, dstProtocol, datagramSize, timestamp, tcpFlags = '', payload = 0):
+    def updateGetStats(self, IPtype, srcMAC,dstMAC, srcIP, srcProtocol, dstIP, dstProtocol, datagramSize, timestamp, tcpFlags=False, payload = 0):
         # Host BW: Stats on the srcIP's general Sender Statistics
         # Hstat = np.zeros((3*len(self.Lambdas,)))
         # for i in range(len(self.Lambdas)):
         #     Hstat[(i*3):((i+1)*3)] = self.HT_H.update_get_1D_Stats(srcIP, timestamp, datagramSize, self.Lambdas[i])
 
+        if tcpFlags and tcpFlags == "":
+            return np.zeroes(8*len(self.Lambdas))
+        if tcpFlags and tcpFlags != "":
+            # MAC.IP: Stats on src MAC-IP relationships
+            MIstat = np.zeros((8 * len(self.Lambdas, )))
+            for i in range(len(self.Lambdas)):
+                MIstat[(i*8):((i+1)*8)] = self.HT_MI.update_get_1D_Stats(srcMAC + srcIP, timestamp, datagramSize, self.Lambdas[i], tcpFlags=tcpFlags)
+            return MIstat
         #MAC.IP: Stats on src MAC-IP relationships
         MIstat =  np.zeros((3*len(self.Lambdas,)))
         for i in range(len(self.Lambdas)):

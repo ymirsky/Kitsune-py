@@ -41,8 +41,8 @@ class Kitsune:
         # process KitNET
         return self.AnomDetector.process(x)  # will train during the grace periods, then execute on all the rest.
 
-    def get_feature_list(self, csv=False):
-        vectorList = self.FE.get_all_vectors(csv)
+    def get_feature_list(self, csv=False, single=False):
+        vectorList = self.FE.get_all_vectors(csv, single)
         return vectorList
 
     def feed_batch(self, data):
