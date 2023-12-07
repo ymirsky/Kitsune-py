@@ -3,7 +3,7 @@ import numpy as np
 
 
 class incStat:
-    def __init__(self, Lambda, ID, init_time=0, isTypeDiff=False):  # timestamp is creation time
+    def __init__(self, Lambda, ID, init_time=0, isTypeDiff=False, tcpFlags=False):  # timestamp is creation time
         self.ID = ID
         self.CF1 = 0  # linear sum
         self.CF2 = 0  # sum of squares
@@ -15,8 +15,28 @@ class incStat:
         self.cur_var = np.nan
         self.cur_std = np.nan
         self.covs = [] # a list of incStat_covs (references) with relate to this incStat
+        self.tcpPkts = 0
+        self.flag_counts = {
+            "FIN": 0,
+            "SYN": 0,
+            "RST": 0,
+            "PSH": 0,
+            "ACK": 0,
+            "URG": 0,
+            "ECE": 0,
+            "CWR": 0
+        }
 
-    def insert(self, v, t=0):  # v is a scalar, t is v's arrival the timestamp
+    def insert(self, v, t=0, tcpFlags=False):  # v is a scalar, t is v's arrival the timestamp
+        if tcpFlags:
+            self.tcpPkts += 1
+            flag_int = int(tcpFlags, 16)  # Convert hex string to integer
+            flags = ["FIN", "SYN", "RST", "PSH", "ACK", "URG", "ECE", "CWR"]
+            for i, flag in enumerate(flags):
+                if flag_int & (1 << i):  # Check if the flag is set
+                    self.flag_counts[flag] += 1
+            return True
+
         if self.isTypeDiff:
             dif = t - self.lastTimestamp
             if dif > 0:
@@ -98,9 +118,13 @@ class incStat:
         return math.sqrt(A)
 
     #calculates and pulls all stats on this stream
-    def allstats_1D(self):
+    def allstats_1D(self, tcpFlags=False):
         self.cur_mean = self.CF1 / self.w
         self.cur_var = abs(self.CF2 / self.w - math.pow(self.cur_mean, 2))
+        # Return mean of tcp flags
+        if tcpFlags:
+            flags = [flag / self.tcpPkts for flag in list(self.flag_counts.values())]
+            return flags
         return [self.w, self.cur_mean, self.cur_var]
 
     #calculates and pulls all stats on this stream, and stats shared with the indicated stream
@@ -264,7 +288,6 @@ class incStatDB:
     def register(self,ID,Lambda=1,init_time=0,isTypeDiff=False):
         #Default Lambda?
         Lambda = self.get_lambda(Lambda)
-
         #Retrieve incStat
         key = ID+"_"+str(Lambda)
         incS = self.HT.get(key)
@@ -298,9 +321,9 @@ class incStatDB:
         return inc_cov
 
     # updates/registers stream
-    def update(self,ID,t,v,Lambda=1,isTypeDiff=False):
+    def update(self,ID,t,v,Lambda=1,isTypeDiff=False,tcpFlags=False):
         incS = self.register(ID,Lambda,t,isTypeDiff)
-        incS.insert(v,t)
+        incS.insert(v,t,tcpFlags=tcpFlags)
         return incS
 
     # Pulls current stats from the given ID
@@ -369,9 +392,9 @@ class incStatDB:
         return [np.sqrt(rad),np.sqrt(mag)]
 
     # Updates and then pulls current 1D stats from the given ID. Automatically registers previously unknown stream IDs
-    def update_get_1D_Stats(self, ID,t,v,Lambda=1,isTypeDiff=False):  # weight, mean, std
-        incS = self.update(ID,t,v,Lambda,isTypeDiff)
-        return incS.allstats_1D()
+    def update_get_1D_Stats(self, ID,t,v,Lambda=1,isTypeDiff=False, tcpFlags=False):  # weight, mean, std
+        incS = self.update(ID,t,v,Lambda,isTypeDiff, tcpFlags=tcpFlags)
+        return incS.allstats_1D(tcpFlags)
 
 
     # Updates and then pulls current correlative stats between the given IDs. Automatically registers previously unknown stream IDs, and cov tracking
@@ -439,4 +462,3 @@ class incStatDB:
             elif W > cutoffWeight:
                 break
         return n
-
