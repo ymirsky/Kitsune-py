@@ -1,5 +1,6 @@
 from FeatureExtractor import *
 from KitNET.KitNET import KitNET
+import numpy as np
 
 # MIT License
 #
@@ -24,7 +25,7 @@ from KitNET.KitNET import KitNET
 # SOFTWARE.
 
 class Kitsune:
-    def __init__(self,file_path,limit,max_autoencoder_size=10,FM_grace_period=None,AD_grace_period=10000,learning_rate=0.1,hidden_ratio=0.75,):
+    def __init__(self,file_path,limit,max_autoencoder_size=10,FM_grace_period=None,AD_grace_period=10000,learning_rate=0.1,hidden_ratio=0.75):
         #init packet feature extractor (AfterImage)
         self.FE = FE(file_path,limit)
 
@@ -40,3 +41,16 @@ class Kitsune:
         # process KitNET
         return self.AnomDetector.process(x)  # will train during the grace periods, then execute on all the rest.
 
+    def get_feature_list(self, csv=False, single=False):
+        vectorList = self.FE.get_all_vectors(csv, single)
+        return vectorList
+
+    def feed_batch(self, data):
+        resultList = []
+        count = 0
+        for instance in data:
+            if count % 1000 == 0:
+                print("processing packet ", count, " / ", len(data))
+            resultList.append(self.AnomDetector.process(instance))
+            count += 1
+        return np.array(resultList)

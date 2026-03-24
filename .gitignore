@@ -1,0 +1,5 @@
+input_data/*
+output_data/*
+pickles/*
+__pycache__/*
+.idea/*
