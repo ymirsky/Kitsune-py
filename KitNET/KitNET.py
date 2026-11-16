@@ -79,20 +79,17 @@ class KitNET:
                 print("Feature-Mapper: execute-mode, Anomaly-Detector: execute-mode")
         self.n_trained += 1
 
-    #force execute KitNET on x
+    # Score one feature vector or a batch with one feature vector per row.
     def execute(self,x):
         if self.v is None:
             raise RuntimeError('KitNET Cannot execute x, because a feature mapping has not yet been learned or provided. Try running process(x) instead.')
-        else:
-            self.n_executed += 1
-            ## Ensemble Layer
-            S_l1 = np.zeros(len(self.ensembleLayer))
-            for a in range(len(self.ensembleLayer)):
-                # make sub inst
-                xi = x[self.v[a]]
-                S_l1[a] = self.ensembleLayer[a].execute(xi)
-            ## OutputLayer
-            return self.outputLayer.execute(S_l1)
+        x = np.asarray(x)
+        if x.ndim not in (1, 2) or x.shape[-1] != self.n:
+            raise ValueError("expected a feature vector or a matrix with one vector per row")
+        scores = [ae.execute(x[..., features]) for ae, features in zip(self.ensembleLayer, self.v)]
+        result = self.outputLayer.execute(np.stack(scores, axis=-1))
+        self.n_executed += 1 if x.ndim == 1 else x.shape[0]
+        return result
 
     def __createAD__(self):
         # construct ensemble layer

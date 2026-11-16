@@ -45,8 +45,8 @@ class dA:
             self.params.n_hidden = int(numpy.ceil(self.params.n_visible*self.params.hiddenRatio))
 
         # for 0-1 normlaization
-        self.norm_max = numpy.ones((self.params.n_visible,)) * -numpy.Inf
-        self.norm_min = numpy.ones((self.params.n_visible,)) * numpy.Inf
+        self.norm_max = numpy.ones((self.params.n_visible,)) * -numpy.inf
+        self.norm_min = numpy.ones((self.params.n_visible,)) * numpy.inf
         self.n = 0
 
         self.rng = numpy.random.RandomState(1234)
@@ -113,12 +113,12 @@ class dA:
 
     def execute(self, x): #returns MSE of the reconstruction of x
         if self.n < self.params.gracePeriod:
-            return 0.0
+            return 0.0 if x.ndim == 1 else numpy.zeros(x.shape[0])
         else:
             # 0-1 normalize
             x = (x - self.norm_min) / (self.norm_max - self.norm_min + 0.0000000000000001)
             z = self.reconstruct(x)
-            rmse = numpy.sqrt(((x - z) ** 2).mean()) #MSE
+            rmse = numpy.sqrt(((x - z) ** 2).mean(axis=-1))
             return rmse
 
 
